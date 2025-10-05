@@ -421,14 +421,14 @@ Functions:
 
 ## Phase 6: Core Installation Logic (Task T026)
 
-### T026 Implement plugin installer orchestration
+### ✅ T026 Implement plugin installer orchestration
 **File**: `/Users/kengo/projects/lua-projects/nvim/necromancer/src/core/installer.ts`
 
 Implement core installation logic:
 - `installPlugin(def: PluginDefinition, installDir: string): InstallationStatus`
 - `updatePlugin(def: PluginDefinition, installed: InstalledPlugin): InstallationStatus`
 - `verifyInstallation(installed: InstalledPlugin): boolean`
-- `repairPlugin(def: PluginDefinition, installDir: string): void`
+- `repairPlugin(def: PluginDefinition, targetPath: string): void`
 
 Flow:
 1. Check if plugin directory exists
@@ -438,7 +438,7 @@ Flow:
 5. If different, checkout new commit
 6. Return status
 
-**Acceptance**: Compiles without errors
+**Acceptance**: Compiles without errors ✅
 
 ---
 
