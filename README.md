@@ -1,4 +1,4 @@
-# Necromancer
+# Necromancer.nvim
 
 **Neovim plugin manager with commit-based versioning**
 
@@ -25,7 +25,7 @@ Necromancer is a deterministic, zero-dependency Neovim plugin manager that uses 
 ### Install globally via npm
 
 ```bash
-npm install -g necromancer
+npm install -g necromancer.nvim
 ```
 
 ### Verify installation
