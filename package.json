@@ -1,0 +1,52 @@
+{
+  "name": "necromancer",
+  "version": "0.1.0",
+  "description": "Neovim plugin manager with commit-based versioning",
+  "type": "module",
+  "main": "./dist/cli/index.js",
+  "bin": {
+    "necromancer": "./dist/cli/index.js"
+  },
+  "scripts": {
+    "build": "tsc",
+    "test": "vitest",
+    "test:unit": "vitest run tests/unit",
+    "test:integration": "vitest run tests/integration",
+    "lint": "tsc --noEmit",
+    "prepublishOnly": "npm test && npm run build"
+  },
+  "keywords": [
+    "neovim",
+    "plugin",
+    "manager",
+    "git",
+    "commit",
+    "vim",
+    "nvim",
+    "package-manager",
+    "deterministic"
+  ],
+  "author": "",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/your-username/necromancer"
+  },
+  "bugs": {
+    "url": "https://github.com/your-username/necromancer/issues"
+  },
+  "homepage": "https://github.com/your-username/necromancer#readme",
+  "files": [
+    "dist",
+    "README.md",
+    "LICENSE"
+  ],
+  "devDependencies": {
+    "@types/node": "^24.0.0",
+    "typescript": "^5.0.0",
+    "vitest": "latest"
+  },
+  "engines": {
+    "node": ">=24.0.0"
+  }
+}
