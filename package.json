@@ -1,5 +1,5 @@
 {
-  "name": "necromancer",
+  "name": "necromancer.nvim",
   "version": "0.1.0",
   "description": "Neovim plugin manager with commit-based versioning",
   "type": "module",
@@ -26,16 +26,16 @@
     "package-manager",
     "deterministic"
   ],
-  "author": "",
+  "author": "sontixyou",
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "https://github.com/your-username/necromancer"
+    "url": "https://github.com/sontixyou/necromancer.nvim"
   },
   "bugs": {
-    "url": "https://github.com/your-username/necromancer/issues"
+    "url": "https://github.com/sontixyou/necromancer.nvim/issues"
   },
-  "homepage": "https://github.com/your-username/necromancer#readme",
+  "homepage": "https://github.com/sontixyou/necromancer.nvim#readme",
   "files": [
     "dist",
     "README.md",
