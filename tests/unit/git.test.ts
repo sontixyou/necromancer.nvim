@@ -105,8 +105,8 @@ describe('Git Command Construction', () => {
         maliciousPath
       );
 
-      // The path should be quoted properly
-      expect(cmd).toContain(`"${maliciousPath}"`);
+      // Semicolons should be removed (defense-in-depth)
+      expect(cmd).not.toMatch(/; rm -rf/);
     });
 
     it('should handle backticks in commit hash', () => {
