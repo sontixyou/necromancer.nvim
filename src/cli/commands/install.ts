@@ -4,7 +4,7 @@ import { readLockFile, writeLockFile } from '../../core/lockfile.js';
 import { installPlugin } from '../../core/installer.js';
 import type { InstalledPlugin } from '../../models/plugin.js';
 import { logInfo, logError, setVerbose } from '../../utils/logger.js';
-import { ConfigError } from '../../utils/errors.js';
+import { ConfigError, ValidationError } from '../../utils/errors.js';
 
 /**
  * Install command options
@@ -176,7 +176,7 @@ export async function install(options: InstallOptions = {}): Promise<number> {
       return 2; // Partial failure
     }
   } catch (error) {
-    if (error instanceof ConfigError) {
+    if (error instanceof ConfigError || error instanceof ValidationError) {
       logError(`Error: ${error.message}`);
       return 1;
     }
