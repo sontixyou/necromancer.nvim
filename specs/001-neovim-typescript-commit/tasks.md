@@ -552,7 +552,7 @@ Implement:
 
 ## Phase 9: Integration Tests (Tasks T034-T040)
 
-### T034 [P] Write integration test: First-time setup (Scenario 1)
+### ✅ T034 [P] Write integration test: First-time setup (Scenario 1)
 **File**: `/Users/kengo/projects/lua-projects/nvim/necromancer/tests/integration/install.test.ts`
 
 Test from quickstart.md Scenario 1:
@@ -568,7 +568,7 @@ Uses local test git repositories (no network).
 
 ---
 
-### T035 [P] Write integration test: Update plugin versions (Scenario 2)
+### ✅ T035 [P] Write integration test: Update plugin versions (Scenario 2)
 **File**: `/Users/kengo/projects/lua-projects/nvim/necromancer/tests/integration/update.test.ts`
 
 Test from quickstart.md Scenario 2:
@@ -582,7 +582,7 @@ Test from quickstart.md Scenario 2:
 
 ---
 
-### T036 [P] Write integration test: Add new plugin (Scenario 3)
+### ✅ T036 [P] Write integration test: Add new plugin (Scenario 3)
 **File**: `/Users/kengo/projects/lua-projects/nvim/necromancer/tests/integration/install.test.ts`
 
 Test from quickstart.md Scenario 3:
@@ -596,7 +596,7 @@ Test from quickstart.md Scenario 3:
 
 ---
 
-### T037 [P] Write integration test: Remove plugin and clean (Scenario 4)
+### ✅ T037 [P] Write integration test: Remove plugin and clean (Scenario 4)
 **File**: `/Users/kengo/projects/lua-projects/nvim/necromancer/tests/integration/clean.test.ts`
 
 Test from quickstart.md Scenario 4:
@@ -610,7 +610,7 @@ Test from quickstart.md Scenario 4:
 
 ---
 
-### T038 [P] Write integration test: Verify and repair (Scenario 5)
+### ✅ T038 [P] Write integration test: Verify and repair (Scenario 5)
 **File**: `/Users/kengo/projects/lua-projects/nvim/necromancer/tests/integration/verify.test.ts`
 
 Test from quickstart.md Scenario 5:
@@ -623,7 +623,7 @@ Test from quickstart.md Scenario 5:
 
 ---
 
-### T039 [P] Write integration test: Invalid commit error (Scenario 6)
+### ✅ T039 [P] Write integration test: Invalid commit error (Scenario 6)
 **File**: `/Users/kengo/projects/lua-projects/nvim/necromancer/tests/integration/errors.test.ts`
 
 Test from quickstart.md Scenario 6:
@@ -637,7 +637,7 @@ Test from quickstart.md Scenario 6:
 
 ---
 
-### T040 [P] Write integration test: Invalid config error (Scenario 7)
+### ✅ T040 [P] Write integration test: Invalid config error (Scenario 7)
 **File**: `/Users/kengo/projects/lua-projects/nvim/necromancer/tests/integration/errors.test.ts`
 
 Test from quickstart.md Scenario 7:
