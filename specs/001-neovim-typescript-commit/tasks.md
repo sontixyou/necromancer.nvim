@@ -309,7 +309,7 @@ export interface LockFile {
 
 ## Phase 4: Core Utilities (Tasks T019-T023)
 
-### T019 Implement error classes
+### ✅ T019 Implement error classes
 **File**: `/Users/kengo/projects/lua-projects/nvim/necromancer/src/utils/errors.ts`
 
 Implement error hierarchy from T014 tests.
@@ -318,7 +318,7 @@ Implement error hierarchy from T014 tests.
 
 ---
 
-### T020 Implement logger utility
+### ✅ T020 Implement logger utility
 **File**: `/Users/kengo/projects/lua-projects/nvim/necromancer/src/utils/logger.ts`
 
 Implement synchronous logging to stdout/stderr using:
@@ -329,7 +329,7 @@ Implement synchronous logging to stdout/stderr using:
 
 ---
 
-### T021 Implement path resolution utility
+### ✅ T021 Implement path resolution utility
 **File**: `/Users/kengo/projects/lua-projects/nvim/necromancer/src/utils/paths.ts`
 
 Implement using Node.js `path` and `os` modules:
@@ -341,7 +341,7 @@ Implement using Node.js `path` and `os` modules:
 
 ---
 
-### T022 Implement validator module
+### ✅ T022 Implement validator module
 **File**: `/Users/kengo/projects/lua-projects/nvim/necromancer/src/core/validator.ts`
 
 Implement all validation functions:
@@ -354,7 +354,7 @@ Implement all validation functions:
 
 ---
 
-### T023 Implement config file parser
+### ✅ T023 Implement config file parser
 **File**: `/Users/kengo/projects/lua-projects/nvim/necromancer/src/core/config.ts`
 
 Implement synchronously using:
