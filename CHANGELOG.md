@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.3] - 2025-10-06
+
+### Changed
+- Disabled source maps and declaration maps to reduce package size by ~47%.
+
+### Updated
+- Documentation about source map configuration in CLAUDE.md.
+
 ## [0.1.2] - 2025-10-06
 
 ### Changed
@@ -26,6 +34,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Commit hash versioning with 40-character SHA-1 validation.
 - TypeScript strict mode compilation to ES2020+ JavaScript.
 
-[unreleased]: https://github.com/sontixyou/necromancer.nvim/compare/v0.1.2...HEAD
+[unreleased]: https://github.com/sontixyou/necromancer.nvim/compare/v0.1.3...HEAD
+[0.1.3]: https://github.com/sontixyou/necromancer.nvim/compare/v0.1.2...v0.1.3
 [0.1.2]: https://github.com/sontixyou/necromancer.nvim/compare/v0.1.1...v0.1.2
 [0.1.1]: https://github.com/sontixyou/necromancer.nvim/releases/tag/v0.1.1

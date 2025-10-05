@@ -1,6 +1,6 @@
 {
   "name": "necromancer.nvim",
-  "version": "0.1.2",
+  "version": "0.1.3",
   "description": "Neovim plugin manager with commit-based versioning",
   "type": "module",
   "main": "./dist/cli/index.js",
