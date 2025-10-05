@@ -55,7 +55,7 @@ function getLockFilePath(configPath: string): string {
  * @param options - Command options
  * @returns Exit code
  */
-export async function list(options: ListOptions = {}): Promise<number> {
+export function list(options: ListOptions = {}): number {
   try {
     if (options.verbose) {
       setVerbose(true);

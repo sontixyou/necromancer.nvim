@@ -55,7 +55,7 @@ function getLockFilePath(configPath: string): string {
  * @param options - Command options
  * @returns Exit code (0 = all verified, 2 = issues found)
  */
-export async function verify(options: VerifyOptions = {}): Promise<number> {
+export function verify(options: VerifyOptions = {}): number {
   try {
     const configPath = resolveConfigPath(options.config);
     const config = parseConfigFile(configPath);

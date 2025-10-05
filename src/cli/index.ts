@@ -109,7 +109,7 @@ function parseCliArgs(): { command: string; options: Record<string, unknown> } {
 /**
  * Main CLI entry point
  */
-async function main(): Promise<void> {
+function main(): void {
   const { command, options } = parseCliArgs();
 
   let exitCode: number;
@@ -117,22 +117,22 @@ async function main(): Promise<void> {
   try {
     switch (command) {
       case 'init':
-        exitCode = await init(options);
+        exitCode = init(options);
         break;
       case 'install':
-        exitCode = await install(options);
+        exitCode = install(options);
         break;
       case 'update':
-        exitCode = await update(options);
+        exitCode = update(options);
         break;
       case 'list':
-        exitCode = await list(options);
+        exitCode = list(options);
         break;
       case 'verify':
-        exitCode = await verify(options);
+        exitCode = verify(options);
         break;
       case 'clean':
-        exitCode = await clean(options);
+        exitCode = clean(options);
         break;
       default:
         console.error(`Error: Command "${command}" not implemented`);
@@ -147,7 +147,4 @@ async function main(): Promise<void> {
 }
 
 // Run CLI
-main().catch(error => {
-  console.error(`Fatal error: ${error.message}`);
-  process.exit(3);
-});
+main();

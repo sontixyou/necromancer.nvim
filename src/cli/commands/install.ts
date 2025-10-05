@@ -1,4 +1,4 @@
-import { existsSync } from 'fs';
+import { existsSync, rmSync } from 'fs';
 import { parseConfigFile } from '../../core/config.js';
 import { readLockFile, writeLockFile } from '../../core/lockfile.js';
 import { installPlugin } from '../../core/installer.js';
@@ -59,7 +59,7 @@ function getLockFilePath(configPath: string): string {
  * @param options - Command options
  * @returns Exit code
  */
-export async function install(options: InstallOptions = {}): Promise<number> {
+export function install(options: InstallOptions = {}): number {
   try {
     // Enable verbose logging if requested
     if (options.verbose) {
@@ -142,9 +142,8 @@ export async function install(options: InstallOptions = {}): Promise<number> {
         logInfo(`\nRemoving ${orphanedPlugins.length} orphaned plugin(s)...`);
         for (const orphan of orphanedPlugins) {
           try {
-            const fs = await import('fs');
-            if (fs.existsSync(orphan.path)) {
-              fs.rmSync(orphan.path, { recursive: true, force: true });
+            if (existsSync(orphan.path)) {
+              rmSync(orphan.path, { recursive: true, force: true });
               logInfo(`✓ Removed ${orphan.name}`);
             }
           } catch (error) {
