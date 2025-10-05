@@ -20,6 +20,7 @@ Necromancer is a deterministic, zero-dependency Neovim plugin manager that uses 
 - Node.js 24+ (or any version with ES2020+ support)
 - Git installed and available in PATH
 - Neovim (for using the installed plugins)
+- Deno (required for denops-based plugins) - [Installation guide](https://deno.land/)
 
 ### Install globally via npm
 
@@ -51,14 +52,14 @@ Edit `.necromancer.json` to add your Neovim plugins:
 {
   "plugins": [
     {
-      "name": "plenary.nvim",
-      "repo": "https://github.com/nvim-lua/plenary.nvim",
-      "commit": "a3e3bc82a3f95c5ed0d7201546d5d2c19b20d683"
+      "name": "denops.vim",
+      "repo": "https://github.com/vim-denops/denops.vim",
+      "commit": "a278b8342459e4687f24d4d575d72ff593326cee"
     },
     {
-      "name": "nvim-treesitter",
-      "repo": "https://github.com/nvim-treesitter/nvim-treesitter",
-      "commit": "0dfbf5e48e8551212c2a9f1c5614d008f4e86eba"
+      "name": "denops-helloworld",
+      "repo": "https://github.com/vim-denops/denops-helloworld.vim",
+      "commit": "f975281571191cfd4e3f9e5ba77103932f7dd6e5"
     }
   ]
 }
@@ -79,18 +80,29 @@ Plugins are installed to:
 Add to your `~/.config/nvim/init.lua`:
 
 ```lua
--- Add necromancer plugins to runtimepath
-local necromancer_path = vim.fn.expand('~/.local/share/nvim/necromancer/plugins')
-local plugins = vim.fn.globpath(necromancer_path, '*', false, true)
+-- Configure Deno path for denops.vim (required for denops-based plugins)
+-- Adjust the path based on your Deno installation:
+-- - macOS (Homebrew): '/opt/homebrew/bin/deno'
+-- - macOS (Intel): '/usr/local/bin/deno'
+-- - Linux: '/usr/bin/deno' or '~/.deno/bin/deno'
+-- - Windows: 'C:/Users/USERNAME/scoop/shims/deno.exe'
+vim.g['denops#deno'] = '/opt/homebrew/bin/deno'
 
-for _, plugin in ipairs(plugins) do
-  vim.opt.runtimepath:append(plugin)
+-- Load necromancer plugins
+local plugin_dir = vim.fn.expand('~/.local/share/nvim/necromancer/plugins')
+for _, plugin in ipairs(vim.fn.readdir(plugin_dir)) do
+  vim.opt.runtimepath:append(plugin_dir .. '/' .. plugin)
 end
 
 -- Now you can use the plugins
 require('telescope').setup{}
 require('nvim-treesitter.configs').setup{}
 ```
+
+**Note**: If you plan to use denops-based plugins (like ddc.vim, ddu.vim, etc.), you must:
+1. Install Deno (see Prerequisites)
+2. Include `denops.vim` in your plugin configuration
+3. Set the correct Deno path in your Neovim config
 
 ## Commands
 
