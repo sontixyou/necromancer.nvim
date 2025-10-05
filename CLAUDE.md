@@ -251,11 +251,19 @@ Key compiler options (tsconfig.json):
 - `noUnusedLocals: true` / `noUnusedParameters: true`
 - `noImplicitReturns: true`
 - `noFallthroughCasesInSwitch: true`
+- `sourceMap: false` (no source maps for smaller dist size)
+- `declaration: true` (type definitions for consumers)
+- `declarationMap: false` (no declaration maps for smaller dist size)
 
 **Important ESM Requirements**:
 - All imports must use `.js` extensions in import paths (even for `.ts` files)
 - Example: `import { foo } from '../../src/core/validator.js'` (not `.ts`)
 - This is required for proper ESM module resolution at runtime
+
+**Distribution Package**:
+- Published files (package.json `files` field): `dist/`, `README.md`, `LICENSE`
+- Typical dist size: ~168KB (JavaScript + type definitions, no source maps)
+- Source maps disabled to reduce package size by ~47%
 
 ## File References Format
 
