@@ -19,6 +19,9 @@ Necromancer is a TypeScript-based Neovim plugin manager that uses Git commit has
 # Build TypeScript to JavaScript
 npm run build
 
+# Type checking (no emit)
+npm run lint
+
 # Run all tests (unit + integration)
 npm test
 
@@ -33,6 +36,9 @@ npm test -- --watch
 
 # Run specific test file
 npm test -- tests/unit/validator.test.ts
+
+# Run tests with coverage
+npm test -- --coverage
 ```
 
 ### Running the CLI (Development)
@@ -125,20 +131,46 @@ execSync(`git clone "${url}" "${targetPath}"`, {
 
 ## Testing Strategy
 
+**Vitest Configuration**
+- Globals disabled - always use explicit imports: `import { describe, it, expect } from 'vitest'`
+- ESM modules - import from `.js` extensions even though source is `.ts` (TypeScript ESM requirement)
+- Coverage with v8 provider (reports in `./coverage`)
+
 **Unit Tests** (tests/unit/)
-- Mock fs and child_process modules
+- Mock fs and child_process modules using Vitest's mock functions
 - Test validation logic, path resolution, config parsing
-- No I/O operations
+- No I/O operations - purely synchronous logic testing
+- Example: `tests/unit/validator.test.ts` validates regex patterns
 
 **Integration Tests** (tests/integration/)
-- Use local test git repositories (no network)
+- Create local test git repositories (no network) using `execSync` in `beforeEach`
+- Use `mkdtempSync` for isolated temporary directories per test
 - Verify file system state after operations
-- Test end-to-end workflows
+- Test end-to-end workflows with real git operations
+- Example: `tests/integration/install.test.ts` creates a local repo with known commits
 
-**Test Data Setup**
-- Create fixture repos with known commits
-- Use predictable commit hashes for assertions
-- Simulate edge cases (invalid commits, corrupted repos)
+**Test Data Setup Pattern**
+```typescript
+beforeEach(() => {
+  testDir = mkdtempSync(join(tmpdir(), 'necromancer-test-'));
+  testRepoPath = join(testDir, 'test-repo');
+
+  // Create local git repo
+  mkdirSync(testRepoPath);
+  execSync('git init', { cwd: testRepoPath, stdio: 'pipe' });
+  execSync('git config user.email "test@test.com"', { cwd: testRepoPath });
+
+  // Create commits and capture hashes
+  writeFileSync(join(testRepoPath, 'file.txt'), 'content');
+  execSync('git add .', { cwd: testRepoPath, stdio: 'pipe' });
+  execSync('git commit -m "commit"', { cwd: testRepoPath, stdio: 'pipe' });
+  commit = execSync('git rev-parse HEAD', { cwd: testRepoPath, encoding: 'utf-8' }).trim();
+});
+
+afterEach(() => {
+  rmSync(testDir, { recursive: true, force: true });
+});
+```
 
 ## Common Development Scenarios
 
@@ -213,9 +245,17 @@ For detailed specifications, see `specs/001-neovim-typescript-commit/`:
 Key compiler options (tsconfig.json):
 - `strict: true` (all strict checks enabled)
 - `target: "ES2020"`
-- `module: "ESNext"`
-- `noUncheckedIndexedAccess: true`
+- `module: "ESNext"` (enables ES modules)
 - `moduleResolution: "node"`
+- `noUncheckedIndexedAccess: true` (array access returns `T | undefined`)
+- `noUnusedLocals: true` / `noUnusedParameters: true`
+- `noImplicitReturns: true`
+- `noFallthroughCasesInSwitch: true`
+
+**Important ESM Requirements**:
+- All imports must use `.js` extensions in import paths (even for `.ts` files)
+- Example: `import { foo } from '../../src/core/validator.js'` (not `.ts`)
+- This is required for proper ESM module resolution at runtime
 
 ## File References Format
 
