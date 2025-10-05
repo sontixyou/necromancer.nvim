@@ -248,7 +248,7 @@ Test cases for logger functions:
 
 ## Phase 3: Models Implementation (Tasks T016-T018)
 
-### T016 [P] Implement TypeScript models and interfaces
+### ✅ T016 [P] Implement TypeScript models and interfaces
 **File**: `/Users/kengo/projects/lua-projects/nvim/necromancer/src/models/plugin.ts`
 
 Define TypeScript interfaces:
@@ -276,7 +276,7 @@ export interface InstallationStatus {
 
 ---
 
-### T017 [P] Implement config file schema
+### ✅ T017 [P] Implement config file schema
 **File**: `/Users/kengo/projects/lua-projects/nvim/necromancer/src/models/config-file.ts`
 
 Define:
@@ -291,7 +291,7 @@ export interface ConfigFile {
 
 ---
 
-### T018 [P] Implement lock file schema
+### ✅ T018 [P] Implement lock file schema
 **File**: `/Users/kengo/projects/lua-projects/nvim/necromancer/src/models/lockfile.ts`
 
 Define:
