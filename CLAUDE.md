@@ -1,238 +1,174 @@
-# Claude Code Development Guide: Necromancer
+# CLAUDE.md
 
-**Last Updated**: 2025-10-05
-**Project**: Neovim Plugin Manager with Commit-Based Versioning
-**Feature**: 001-neovim-typescript-commit
+This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
 ## Project Overview
 
-Necromancer is a TypeScript-based Neovim plugin manager that uses Git commit hashes for deterministic version control. The project emphasizes:
-- Zero runtime dependencies (Node.js built-ins only)
-- Synchronous operations (no async/await)
-- Commit hash-based versioning (no tags or branches)
-- Simplicity over abstraction
+Necromancer is a TypeScript-based Neovim plugin manager that uses Git commit hashes (not tags/branches) for deterministic version control. The project follows strict constitutional principles:
 
-## Tech Stack
+- **Zero runtime dependencies** - Only Node.js built-ins (fs, child_process, path, crypto)
+- **Synchronous-only architecture** - No async/await, Promises, or callbacks
+- **Commit hash versioning** - 40-character SHA-1 hashes only (validated: `/^[a-f0-9]{40}$/i`)
+- **TypeScript strict mode** - Compiles to ES2020+ JavaScript
+- **Simplicity over abstraction** - Direct implementations, no DI/OOP patterns
 
-**Language**: TypeScript 5.x (strict mode)
-**Runtime**: Node.js 24+
-**Module System**: ESM (import/export)
-**Testing**: Vitest
-**Build**: TypeScript compiler (tsc)
+## Development Commands
 
-**Dependencies**:
-- Runtime: NONE (only Node.js built-ins: fs, child_process, path, crypto)
-- Development: TypeScript, Vitest, @types/node
+### Build & Test
+```bash
+# Build TypeScript to JavaScript
+npm run build
 
-## Constitutional Principles
+# Run all tests (unit + integration)
+npm test
 
-When developing, ALWAYS adhere to these non-negotiable principles:
+# Run only unit tests
+npm run test:unit
 
-### 1. Minimal Dependencies (NON-NEGOTIABLE)
-- Use ONLY Node.js built-in modules for runtime code
-- Acceptable: fs, child_process, path, crypto, url
-- NOT acceptable: external npm packages in dependencies
-- Dev dependencies OK: TypeScript, Vitest, type definitions
+# Run only integration tests
+npm run test:integration
 
-### 2. Synchronous-First Architecture
-- ALL operations MUST be synchronous
-- Use execSync, readFileSync, writeFileSync
-- NO async/await, Promises, or callbacks
-- Exception: Tests may use async for Vitest compatibility
+# Run tests in watch mode
+npm test -- --watch
 
-### 3. Commit-Based Versioning (NON-NEGOTIABLE)
-- Plugins MUST specify 40-character SHA-1 commit hashes
-- NO support for tags, branches, or semantic versions
-- Validation: `/^[a-f0-9]{40}$/i`
-
-### 4. TypeScript Foundation
-- Enable strict mode: `"strict": true`
-- Compile to ES2020+ JavaScript
-- No TypeScript runtime dependencies
-
-### 5. Simplicity Over Features
-- Prefer direct implementations over abstractions
-- No dependency injection, repository patterns, or complex OOP
-- Simple functions and data structures
-
-## Project Structure
-
-```
-src/
-├── core/           # Core business logic
-│   ├── config.ts       # Config parsing & validation
-│   ├── git.ts         # Git operations (execSync)
-│   ├── installer.ts   # Installation orchestration
-│   └── validator.ts   # Input validation
-├── models/         # TypeScript types & schemas
-│   ├── plugin.ts
-│   ├── lockfile.ts
-│   └── config-file.ts
-├── cli/            # CLI interface
-│   ├── commands/      # Individual commands
-│   └── index.ts      # Entry point
-└── utils/          # Utilities
-    ├── logger.ts
-    ├── paths.ts
-    └── errors.ts
-
-tests/
-├── unit/          # Unit tests (no I/O)
-└── integration/   # Integration tests (local git repos)
+# Run specific test file
+npm test -- tests/unit/validator.test.ts
 ```
 
-## Key Design Decisions
+### Running the CLI (Development)
+```bash
+# After building
+node dist/cli/index.js <command>
 
-### Configuration Format
-- File: `.necromancer.json` (project root) or `~/.config/necromancer/config.json`
-- Format: JSON (native Node.js parsing)
-- Schema: `{ plugins: PluginDefinition[], installDir?: string }`
+# Example: install plugins
+node dist/cli/index.js install
 
-### Lock File
-- File: `.necromancer.lock` (same directory as config)
-- Format: JSON
-- Purpose: Track installed state for reproducibility
+# With verbose logging
+node dist/cli/index.js install --verbose
+```
 
-### Plugin Installation Directory
-- Unix-like: `~/.local/share/nvim/necromancer/plugins/<plugin-name>/`
+## Architecture
+
+### Core Design Principles
+
+**Synchronous Execution Flow**
+- All operations use sync APIs: `execSync`, `readFileSync`, `writeFileSync`
+- No Promises or async/await (except in test helpers for Vitest compatibility)
+- Git operations execute sequentially with `execSync`
+
+**Data Flow**
+```
+Config File (.necromancer.json)
+  → Validation (validator.ts)
+    → Installation (installer.ts)
+      → Git Operations (git.ts)
+        → Lock File Update (.necromancer.lock)
+```
+
+**Git Command Safety Pattern**
+All git commands MUST:
+1. Quote paths to prevent injection
+2. Use `stdio: 'pipe'` to capture output
+3. Validate inputs before execution
+4. Handle errors with custom error types (GitError, ValidationError)
+
+Example:
+```typescript
+execSync(`git clone "${url}" "${targetPath}"`, {
+  encoding: 'utf-8',
+  stdio: 'pipe',
+  windowsHide: true
+});
+```
+
+### Module Organization
+
+**src/models/** - Pure TypeScript types and data structures
+- `plugin.ts`: PluginDefinition, InstalledPlugin, InstallationStatus
+- `config-file.ts`: ConfigFile schema and default paths
+- `lockfile.ts`: LockFile schema and version management
+
+**src/core/** - Core business logic (all synchronous)
+- `config.ts`: Config parsing and validation
+- `git.ts`: Git operations via execSync
+- `installer.ts`: Installation orchestration
+- `validator.ts`: Input validation and sanitization
+
+**src/cli/** - CLI interface
+- `cli/commands/`: Individual command handlers
+- `cli/index.ts`: Entry point and argument parsing
+
+**src/utils/** - Cross-cutting utilities
+- `logger.ts`: Logging to stdout/stderr
+- `paths.ts`: Cross-platform path resolution
+- `errors.ts`: Custom error types
+
+### Key Patterns
+
+**Config File Location**
+1. Project root: `.necromancer.json`
+2. Global fallback: `~/.config/necromancer/config.json`
+
+**Plugin Installation Directory**
+- Unix: `~/.local/share/nvim/necromancer/plugins/<plugin-name>/`
 - Windows: `%LOCALAPPDATA%\nvim\necromancer\plugins\<plugin-name>\`
-- Each plugin in separate directory
 
-### Git Operations Pattern
-```typescript
-import { execSync } from 'child_process';
+**Lock File Management**
+- Stored alongside config file
+- JSON format with version tracking
+- Updated atomically after successful installations
 
-function gitClone(url: string, targetPath: string): void {
-  try {
-    execSync(`git clone "${url}" "${targetPath}"`, {
-      encoding: 'utf-8',
-      stdio: 'pipe',
-      windowsHide: true
-    });
-  } catch (error) {
-    throw new GitError(`Failed to clone ${url}: ${error.message}`);
-  }
-}
-```
-
-### Error Handling
-```typescript
-class NecromancerError extends Error {
-  constructor(message: string) {
-    super(message);
-    this.name = 'NecromancerError';
-  }
-}
-
-class GitError extends NecromancerError { /* ... */ }
-class ValidationError extends NecromancerError { /* ... */ }
-```
-
-## Recent Changes
-
-### 2025-10-05: Initial Feature Specification
-- Created feature spec with 18 functional requirements
-- Defined 7 core entities (PluginDefinition, ConfigFile, InstalledPlugin, etc.)
-- Established CLI command contracts (install, update, list, verify, clean, init)
-- Resolved 3 clarifications from spec
-
-## Implementation Guidelines
-
-### When Adding a New Feature
-1. Check constitutional compliance FIRST
-2. Prefer synchronous APIs
-3. Avoid external dependencies
-4. Write tests before implementation (TDD)
-5. Update this file with new patterns
-
-### When Writing Git Operations
-- ALWAYS use execSync (never spawn/exec)
-- ALWAYS quote paths to prevent injection
-- ALWAYS capture stdout/stderr for logging
-- ALWAYS validate inputs before execution
-- Use `stdio: 'pipe'` to capture output
-
-### When Handling File System
-- Use synchronous fs methods (readFileSync, writeFileSync)
-- Use path.join() for cross-platform paths
-- Expand `~` using path resolution
-- Handle ENOENT gracefully with clear error messages
-
-### When Validating Input
+**Input Validation Regexes**
 - GitHub URLs: `/^https:\/\/github\.com\/[\w-]+\/[\w.-]+(?:\.git)?$/`
 - Commit hashes: `/^[a-f0-9]{40}$/i`
 - Plugin names: `/^[\w-]{1,100}$/`
-- ALWAYS sanitize before passing to execSync
-
-### When Writing Tests
-- Unit tests: Mock fs and child_process
-- Integration tests: Use local test git repositories (no network)
-- Test both success and error paths
-- Verify constitutional compliance in tests
-
-## Common Patterns
-
-### Reading Config File
-```typescript
-function readConfig(configPath: string): ConfigFile {
-  const content = readFileSync(configPath, 'utf-8');
-  const config = JSON.parse(content) as ConfigFile;
-  validateConfig(config);
-  return config;
-}
-```
-
-### Executing Git Commands Safely
-```typescript
-function safeGitExec(args: string[], cwd?: string): string {
-  const command = `git ${args.map(arg => `"${arg}"`).join(' ')}`;
-  return execSync(command, {
-    cwd,
-    encoding: 'utf-8',
-    stdio: 'pipe'
-  });
-}
-```
-
-### Path Resolution
-```typescript
-function resolvePluginPath(name: string): string {
-  const baseDir = process.platform === 'win32'
-    ? path.join(process.env.LOCALAPPDATA!, 'nvim', 'necromancer', 'plugins')
-    : path.join(os.homedir(), '.local', 'share', 'nvim', 'necromancer', 'plugins');
-  return path.join(baseDir, name);
-}
-```
 
 ## Testing Strategy
 
-### Unit Tests
-- Test individual functions in isolation
-- Mock fs, child_process modules
-- Focus on validation logic, path resolution, config parsing
+**Unit Tests** (tests/unit/)
+- Mock fs and child_process modules
+- Test validation logic, path resolution, config parsing
+- No I/O operations
 
-### Integration Tests
-- Test end-to-end workflows
-- Use local test git repositories (fixture repos)
+**Integration Tests** (tests/integration/)
+- Use local test git repositories (no network)
 - Verify file system state after operations
-- Check lock file updates
+- Test end-to-end workflows
 
-### Test Data
+**Test Data Setup**
 - Create fixture repos with known commits
 - Use predictable commit hashes for assertions
-- Test edge cases: invalid commits, network failures (simulated)
+- Simulate edge cases (invalid commits, corrupted repos)
+
+## Common Development Scenarios
+
+### Adding a New Validation Rule
+1. Add test in `tests/unit/validator.test.ts`
+2. Implement in `src/core/validator.ts`
+3. Update relevant types in `src/models/`
+
+### Adding a New CLI Command
+1. Define contract in `specs/001-neovim-typescript-commit/contracts/cli-commands.md`
+2. Create test in `tests/integration/<command>.test.ts`
+3. Implement in `src/cli/commands/<command>.ts`
+4. Register in `src/cli/index.ts`
+
+### Modifying Git Operations
+1. **Always** validate inputs before passing to execSync
+2. **Always** quote paths and URLs
+3. **Always** handle errors with specific error types
+4. Test with local repos (no network calls)
 
 ## Performance Targets
 
-From constitution:
-- Plugin installation: <30 seconds for typical repositories
-- Config parsing: Handle 100+ plugins without noticeable delay
-- List command: Near-instant (<50ms)
+- Plugin installation: <30 seconds for typical repos
+- Config parsing: <100ms for 100+ plugins
+- List command: <50ms
 - Update operation: <5 seconds per plugin
 
-## Common Pitfalls to Avoid
+## Constitutional Violations to Avoid
 
-### ❌ DON'T DO THIS
+❌ **Don't:**
 ```typescript
 // Async operations
 async function install() { await ... }
@@ -240,19 +176,19 @@ async function install() { await ... }
 // External dependencies
 import axios from 'axios';
 
-// Shell injection vulnerable
-execSync(`git clone ${url}`); // Not quoted!
+// Unquoted shell commands (injection risk)
+execSync(`git clone ${url}`);
 
 // Complex abstractions
 class PluginRepositoryFactory { ... }
 ```
 
-### ✅ DO THIS
+✅ **Do:**
 ```typescript
 // Synchronous operations
 function install(): void { ... }
 
-// Node.js built-ins only
+// Built-ins only
 import { execSync } from 'child_process';
 
 // Safe command execution
@@ -262,44 +198,27 @@ execSync(`git clone "${url}"`);
 function clonePlugin(def: PluginDefinition): void { ... }
 ```
 
-## Debugging Tips
+## Project Documentation
 
-### Enable Verbose Logging
-```bash
-necromancer install --verbose
-```
-
-### Check Git Operations
-```typescript
-// Add logging in git.ts
-console.error(`[DEBUG] Executing: ${command}`);
-const output = execSync(command, ...);
-console.error(`[DEBUG] Output: ${output}`);
-```
-
-### Verify File System State
-```bash
-# Check plugin directory
-ls -la ~/.local/share/nvim/necromancer/plugins/
-
-# Check lock file
-cat .necromancer.lock | jq
-```
-
-## Next Steps
-
-See `/specs/001-neovim-typescript-commit/` for:
-- `plan.md`: Implementation plan and phases
-- `research.md`: Technology decisions and rationale
+For detailed specifications, see `specs/001-neovim-typescript-commit/`:
+- `plan.md`: Implementation phases and architecture decisions
+- `research.md`: Technology choices and rationale
 - `data-model.md`: Entity definitions and validation rules
 - `contracts/cli-commands.md`: CLI interface specifications
 - `quickstart.md`: User testing scenarios
-- `tasks.md`: Implementation task list (created by `/tasks` command)
+- `.specify/memory/constitution.md`: Constitutional principles (non-negotiable)
 
-## Questions or Clarifications
+## TypeScript Configuration
 
-If unclear about implementation details:
-1. Check the constitution first (`.specify/memory/constitution.md`)
-2. Review research decisions (`specs/001-neovim-typescript-commit/research.md`)
-3. Consult data model (`specs/001-neovim-typescript-commit/data-model.md`)
-4. When in doubt, prefer simplicity and ask for clarification
+Key compiler options (tsconfig.json):
+- `strict: true` (all strict checks enabled)
+- `target: "ES2020"`
+- `module: "ESNext"`
+- `noUncheckedIndexedAccess: true`
+- `moduleResolution: "node"`
+
+## File References Format
+
+When referencing code locations, use the pattern: `file_path:line_number`
+
+Example: "Plugin validation happens in `src/core/validator.ts:42`"
