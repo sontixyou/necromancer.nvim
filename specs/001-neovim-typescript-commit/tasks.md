@@ -652,7 +652,7 @@ Test from quickstart.md Scenario 7:
 
 ## Phase 10: Polish & Documentation (Tasks T041-T042)
 
-### T041 [P] Create README.md with usage documentation
+### ✅ T041 [P] Create README.md with usage documentation
 **File**: `/Users/kengo/projects/lua-projects/nvim/necromancer/README.md`
 
 Include:
@@ -669,7 +669,7 @@ Include:
 
 ---
 
-### T042 [P] Add npm build scripts and verify package
+### ✅ T042 [P] Add npm build scripts and verify package
 **File**: `/Users/kengo/projects/lua-projects/nvim/necromancer/package.json`
 
 Add scripts:
