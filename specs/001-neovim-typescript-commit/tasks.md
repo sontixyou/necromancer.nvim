@@ -536,7 +536,7 @@ Implement based on contracts/cli-commands.md:
 
 ## Phase 8: CLI Entry Point (Task T033)
 
-### T033 Implement CLI entry point with argument parsing
+### ✅ T033 Implement CLI entry point with argument parsing
 **File**: `/Users/kengo/projects/lua-projects/nvim/necromancer/src/cli/index.ts`
 
 Implement:
