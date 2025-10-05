@@ -13,7 +13,7 @@ export interface UpdateOptions extends InstallOptions {
  * @param options - Command options
  * @returns Exit code
  */
-export async function update(options: UpdateOptions = {}): Promise<number> {
+export function update(options: UpdateOptions = {}): number {
   // If specific plugins are requested, we would filter here
   // For now, update is the same as install (both handle updates intelligently)
   // The filtering by plugin name can be added as an enhancement

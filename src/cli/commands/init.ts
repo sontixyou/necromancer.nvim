@@ -15,7 +15,7 @@ export interface InitOptions {
  * @param options - Command options
  * @returns Exit code
  */
-export async function init(options: InitOptions = {}): Promise<number> {
+export function init(options: InitOptions = {}): number {
   try {
     const configPath = options.config || '.necromancer.json';
 

@@ -1,9 +1,8 @@
-import { existsSync, rmSync } from 'fs';
+import { existsSync, rmSync, readSync } from 'fs';
 import { parseConfigFile } from '../../core/config.js';
 import { readLockFile, writeLockFile } from '../../core/lockfile.js';
 import { logInfo, logError } from '../../utils/logger.js';
 import { ConfigError } from '../../utils/errors.js';
-import * as readline from 'readline';
 
 /**
  * Clean command options
@@ -52,22 +51,18 @@ function getLockFilePath(configPath: string): string {
 }
 
 /**
- * Prompt user for confirmation
+ * Prompt user for confirmation (synchronous)
  * @param message - Prompt message
- * @returns Promise resolving to true if confirmed
+ * @returns True if confirmed
  */
-function prompt(message: string): Promise<boolean> {
-  const rl = readline.createInterface({
-    input: process.stdin,
-    output: process.stdout
-  });
+function prompt(message: string): boolean {
+  process.stdout.write(message + ' [y/N]: ');
 
-  return new Promise(resolve => {
-    rl.question(message + ' [y/N]: ', answer => {
-      rl.close();
-      resolve(answer.toLowerCase() === 'y' || answer.toLowerCase() === 'yes');
-    });
-  });
+  const buffer = Buffer.alloc(1024);
+  const bytesRead = readSync(0, buffer, 0, 1024, null);
+  const answer = buffer.toString('utf-8', 0, bytesRead).trim();
+
+  return answer.toLowerCase() === 'y' || answer.toLowerCase() === 'yes';
 }
 
 /**
@@ -75,7 +70,7 @@ function prompt(message: string): Promise<boolean> {
  * @param options - Command options
  * @returns Exit code
  */
-export async function clean(options: CleanOptions = {}): Promise<number> {
+export function clean(options: CleanOptions = {}): number {
   try {
     const configPath = resolveConfigPath(options.config);
     const config = parseConfigFile(configPath);
@@ -112,7 +107,7 @@ export async function clean(options: CleanOptions = {}): Promise<number> {
 
     // Confirm unless --force
     if (!options.force) {
-      const confirmed = await prompt('Remove these plugins?');
+      const confirmed = prompt('Remove these plugins?');
       if (!confirmed) {
         logInfo('Cancelled.');
         return 0;
