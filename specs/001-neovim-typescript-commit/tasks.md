@@ -102,7 +102,7 @@ Ignore:
 
 **Note**: All tests in this phase MUST fail initially (Red phase of TDD)
 
-### T006 [P] Write unit tests for GitHub URL validation
+### ✅ T006 [P] Write unit tests for GitHub URL validation
 **File**: `/Users/kengo/projects/lua-projects/nvim/necromancer/tests/unit/validator.test.ts`
 
 Test cases for `isValidGitHubUrl()`:
@@ -117,7 +117,7 @@ Test cases for `isValidGitHubUrl()`:
 
 ---
 
-### T007 [P] Write unit tests for commit hash validation
+### ✅ T007 [P] Write unit tests for commit hash validation
 **File**: `/Users/kengo/projects/lua-projects/nvim/necromancer/tests/unit/validator.test.ts`
 
 Test cases for `isValidCommitHash()`:
@@ -131,7 +131,7 @@ Test cases for `isValidCommitHash()`:
 
 ---
 
-### T008 [P] Write unit tests for plugin name validation
+### ✅ T008 [P] Write unit tests for plugin name validation
 **File**: `/Users/kengo/projects/lua-projects/nvim/necromancer/tests/unit/validator.test.ts`
 
 Test cases for `isValidPluginName()`:
@@ -147,7 +147,7 @@ Test cases for `isValidPluginName()`:
 
 ---
 
-### T009 [P] Write unit tests for config file parsing
+### ✅ T009 [P] Write unit tests for config file parsing
 **File**: `/Users/kengo/projects/lua-projects/nvim/necromancer/tests/unit/config.test.ts`
 
 Test cases for `parseConfigFile()`:
@@ -162,7 +162,7 @@ Test cases for `parseConfigFile()`:
 
 ---
 
-### T010 [P] Write unit tests for lock file operations
+### ✅ T010 [P] Write unit tests for lock file operations
 **File**: `/Users/kengo/projects/lua-projects/nvim/necromancer/tests/unit/lockfile.test.ts`
 
 Test cases for `readLockFile()` and `writeLockFile()`:
@@ -176,7 +176,7 @@ Test cases for `readLockFile()` and `writeLockFile()`:
 
 ---
 
-### T011 [P] Write unit tests for path resolution
+### ✅ T011 [P] Write unit tests for path resolution
 **File**: `/Users/kengo/projects/lua-projects/nvim/necromancer/tests/unit/paths.test.ts`
 
 Test cases for `resolvePluginPath()`:
@@ -189,7 +189,7 @@ Test cases for `resolvePluginPath()`:
 
 ---
 
-### T012 [P] Write unit tests for git command construction
+### ✅ T012 [P] Write unit tests for git command construction
 **File**: `/Users/kengo/projects/lua-projects/nvim/necromancer/tests/unit/git.test.ts`
 
 Test cases for `buildGitCloneCommand()` and `buildGitCheckoutCommand()`:
@@ -202,7 +202,7 @@ Test cases for `buildGitCloneCommand()` and `buildGitCheckoutCommand()`:
 
 ---
 
-### T013 [P] Write unit tests for command injection prevention
+### ✅ T013 [P] Write unit tests for command injection prevention
 **File**: `/Users/kengo/projects/lua-projects/nvim/necromancer/tests/unit/validator.test.ts`
 
 Test cases for `sanitizeShellInput()`:
@@ -215,7 +215,7 @@ Test cases for `sanitizeShellInput()`:
 
 ---
 
-### T014 [P] Write unit tests for error classes
+### ✅ T014 [P] Write unit tests for error classes
 **File**: `/Users/kengo/projects/lua-projects/nvim/necromancer/tests/unit/errors.test.ts`
 
 Test error class hierarchy:
@@ -233,7 +233,7 @@ Verify:
 
 ---
 
-### T015 [P] Write unit tests for logger utility
+### ✅ T015 [P] Write unit tests for logger utility
 **File**: `/Users/kengo/projects/lua-projects/nvim/necromancer/tests/unit/logger.test.ts`
 
 Test cases for logger functions:
