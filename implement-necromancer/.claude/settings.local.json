@@ -8,7 +8,10 @@
       "Bash(.specify/scripts/bash/check-prerequisites.sh:*)",
       "Bash(npm install)",
       "Bash(npx tsc:*)",
-      "Bash(npm test:*)"
+      "Bash(npm test:*)",
+      "Read(//Users/kengo/projects/lua-projects/nvim/necromancer/**)",
+      "Bash(npm run test:unit:*)",
+      "Bash(npm run build:*)"
     ],
     "deny": [],
     "ask": []
