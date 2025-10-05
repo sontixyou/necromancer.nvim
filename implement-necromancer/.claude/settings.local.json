@@ -11,7 +11,8 @@
       "Bash(npm test:*)",
       "Read(//Users/kengo/projects/lua-projects/nvim/necromancer/**)",
       "Bash(npm run test:unit:*)",
-      "Bash(npm run build:*)"
+      "Bash(npm run build:*)",
+      "Bash(node:*)"
     ],
     "deny": [],
     "ask": []
