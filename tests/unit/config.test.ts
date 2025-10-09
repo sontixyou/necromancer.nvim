@@ -200,5 +200,121 @@ describe('Config File Parsing', () => {
 
       expect(() => validateConfig(invalidName)).toThrow(/invalid.*name/i);
     });
+
+    it('should accept valid dependencies', () => {
+      const validDependencies = {
+        plugins: [
+          {
+            name: 'plugin-a',
+            repo: 'https://github.com/owner/plugin-a',
+            commit: 'a1b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6e7f8a9b0',
+            dependencies: ['plugin-b']
+          },
+          {
+            name: 'plugin-b',
+            repo: 'https://github.com/owner/plugin-b',
+            commit: 'b1c2d3e4f5a6b7c8d9e0f1a2b3c4d5e6f7a8b9c0'
+          }
+        ]
+      };
+
+      expect(() => validateConfig(validDependencies)).not.toThrow();
+    });
+
+    it('should accept empty dependencies array', () => {
+      const emptyDependencies = {
+        plugins: [
+          {
+            name: 'plugin-a',
+            repo: 'https://github.com/owner/plugin-a',
+            commit: 'a1b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6e7f8a9b0',
+            dependencies: []
+          }
+        ]
+      };
+
+      expect(() => validateConfig(emptyDependencies)).not.toThrow();
+    });
+
+    it('should throw error for non-array dependencies', () => {
+      const invalidDependencies = {
+        plugins: [
+          {
+            name: 'plugin-a',
+            repo: 'https://github.com/owner/plugin-a',
+            commit: 'a1b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6e7f8a9b0',
+            dependencies: 'not-an-array'
+          } as any
+        ]
+      };
+
+      expect(() => validateConfig(invalidDependencies)).toThrow(/dependencies.*must be an array/i);
+    });
+
+    it('should throw error for non-string dependency names', () => {
+      const invalidDepNames = {
+        plugins: [
+          {
+            name: 'plugin-a',
+            repo: 'https://github.com/owner/plugin-a',
+            commit: 'a1b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6e7f8a9b0',
+            dependencies: [123, 'valid-name']
+          } as any
+        ]
+      };
+
+      expect(() => validateConfig(invalidDepNames)).toThrow(/dependencies.*must be an array of strings/i);
+    });
+
+    it('should throw error for invalid dependency names', () => {
+      const invalidDepName = {
+        plugins: [
+          {
+            name: 'plugin-a',
+            repo: 'https://github.com/owner/plugin-a',
+            commit: 'a1b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6e7f8a9b0',
+            dependencies: ['invalid name with spaces']
+          }
+        ]
+      };
+
+      expect(() => validateConfig(invalidDepName)).toThrow(/invalid dependency name/i);
+    });
+
+    it('should throw error for missing dependencies', () => {
+      const missingDep = {
+        plugins: [
+          {
+            name: 'plugin-a',
+            repo: 'https://github.com/owner/plugin-a',
+            commit: 'a1b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6e7f8a9b0',
+            dependencies: ['non-existent-plugin']
+          }
+        ]
+      };
+
+      expect(() => validateConfig(missingDep)).toThrow(/depends on.*not defined/i);
+    });
+
+    it('should throw error for circular dependencies', () => {
+      const circularDeps = {
+        plugins: [
+          {
+            name: 'plugin-a',
+            repo: 'https://github.com/owner/plugin-a',
+            commit: 'a1b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6e7f8a9b0',
+            dependencies: ['plugin-b']
+          },
+          {
+            name: 'plugin-b',
+            repo: 'https://github.com/owner/plugin-b',
+            commit: 'b1c2d3e4f5a6b7c8d9e0f1a2b3c4d5e6f7a8b9c0',
+            dependencies: ['plugin-a']
+          }
+        ]
+      };
+
+      expect(() => validateConfig(circularDeps)).toThrow(/circular dependency detected/i);
+    });
   });
 });

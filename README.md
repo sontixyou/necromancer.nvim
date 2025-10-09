@@ -7,6 +7,7 @@ Necromancer is a deterministic, zero-dependency Neovim plugin manager that uses 
 ## Features
 
 - **Commit-based versioning**: Pin plugins to exact Git commits (40-character SHA-1 hashes)
+- **Plugin dependencies**: Automatic dependency resolution and installation ordering
 - **Zero runtime dependencies**: Only Node.js built-ins (fs, child_process, path, crypto)
 - **Deterministic installations**: Lock file ensures reproducible plugin environments
 - **Fast and lightweight**: Synchronous operations, no network overhead
@@ -216,8 +217,45 @@ necromancer --help
   - **name** (required): Plugin directory name (alphanumeric, hyphens, underscores, dots; 1-100 chars)
   - **repo** (required): GitHub HTTPS URL (e.g., `https://github.com/owner/repo`)
   - **commit** (required): Full 40-character Git commit hash (SHA-1)
+  - **dependencies** (optional): Array of plugin names this plugin depends on
 
 - **installDir** (optional): Custom installation directory (default: platform-specific)
+
+### Plugin Dependencies
+
+Necromancer supports plugin dependencies to ensure proper loading order. When a plugin specifies dependencies, those dependencies will be installed before the dependent plugin.
+
+```json
+{
+  "plugins": [
+    {
+      "name": "telescope.nvim",
+      "repo": "https://github.com/nvim-telescope/telescope.nvim",
+      "commit": "abc1234567890123456789012345678901234567",
+      "dependencies": ["plenary.nvim"]
+    },
+    {
+      "name": "plenary.nvim",
+      "repo": "https://github.com/nvim-lua/plenary.nvim",
+      "commit": "def1234567890123456789012345678901234567"
+    },
+    {
+      "name": "telescope-ui-select.nvim",
+      "repo": "https://github.com/nvim-telescope/telescope-ui-select.nvim",
+      "commit": "ghi1234567890123456789012345678901234567",
+      "dependencies": ["telescope.nvim"]
+    }
+  ]
+}
+```
+
+**Installation order**: `plenary.nvim` → `telescope.nvim` → `telescope-ui-select.nvim`
+
+**Dependency features:**
+- **Topological sorting**: Dependencies are resolved using topological sorting to determine the correct installation order
+- **Circular dependency detection**: Configuration validation will detect and reject circular dependencies
+- **Missing dependency validation**: All dependencies must be defined in the configuration
+- **Transitive dependencies**: Dependencies of dependencies are handled automatically
 
 ### Validation rules
 
@@ -225,6 +263,8 @@ necromancer --help
 - GitHub URLs must use HTTPS (not SSH)
 - Commit hashes must be exactly 40 hexadecimal characters
 - No shell metacharacters allowed in any field
+- All dependencies must reference existing plugin names in the configuration
+- Circular dependencies are not allowed
 
 ## Lock File
 

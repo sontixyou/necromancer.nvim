@@ -1,0 +1,33 @@
+{
+  "plugins": [
+    {
+      "name": "telescope.nvim",
+      "repo": "https://github.com/nvim-telescope/telescope.nvim",
+      "commit": "0dfbf5e48e8551212c2a9f1c5614d008f4e86eba",
+      "dependencies": ["plenary.nvim"]
+    },
+    {
+      "name": "plenary.nvim",
+      "repo": "https://github.com/nvim-lua/plenary.nvim",
+      "commit": "a3e3bc82a3f95c5ed0d7201546d5d2c19b20d683"
+    },
+    {
+      "name": "telescope-ui-select.nvim",
+      "repo": "https://github.com/nvim-telescope/telescope-ui-select.nvim",
+      "commit": "b0015e3bdf84bb4b8397bfe31dcad9e1853c4126",
+      "dependencies": ["telescope.nvim"]
+    },
+    {
+      "name": "nvim-treesitter",
+      "repo": "https://github.com/nvim-treesitter/nvim-treesitter",
+      "commit": "2d182b6245d1cf9e7c979b94b75266d2e1d1a53b"
+    },
+    {
+      "name": "nvim-treesitter-textobjects",
+      "repo": "https://github.com/nvim-treesitter/nvim-treesitter-textobjects",
+      "commit": "f5ade231c0efab098291c4e511e305caf8a1a7e2",
+      "dependencies": ["nvim-treesitter"]
+    }
+  ],
+  "installDir": "~/.local/share/nvim/necromancer/plugins"
+}
