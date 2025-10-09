@@ -8,6 +8,8 @@ export interface PluginDefinition {
   repo: string;
   /** 40-character SHA-1 commit hash */
   commit: string;
+  /** Optional array of plugin names this plugin depends on */
+  dependencies?: string[];
 }
 
 /**

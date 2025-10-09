@@ -2,6 +2,7 @@ import { readFileSync } from 'fs';
 import type { ConfigFile } from '../models/config-file.js';
 import { ConfigError, ValidationError } from '../utils/errors.js';
 import { isValidGitHubUrl, isValidCommitHash, isValidPluginName } from './validator.js';
+import { validateDependencies } from './dependencies.js';
 
 /**
  * Parse and validate configuration file
@@ -89,5 +90,24 @@ export function validateConfig(config: ConfigFile): void {
     if (!isValidCommitHash(plugin.commit)) {
       throw new ValidationError(`Invalid commit hash for plugin "${plugin.name}": ${plugin.commit}`);
     }
+
+    // Validate dependencies if present
+    if (plugin.dependencies) {
+      if (!Array.isArray(plugin.dependencies)) {
+        throw new ValidationError(`Dependencies for plugin "${plugin.name}" must be an array`);
+      }
+
+      for (const dep of plugin.dependencies) {
+        if (typeof dep !== 'string') {
+          throw new ValidationError(`Dependencies for plugin "${plugin.name}" must be an array of strings`);
+        }
+        if (!isValidPluginName(dep)) {
+          throw new ValidationError(`Invalid dependency name "${dep}" for plugin "${plugin.name}"`);
+        }
+      }
+    }
   }
+
+  // Validate dependency relationships (circular dependencies, missing dependencies)
+  validateDependencies(config.plugins);
 }

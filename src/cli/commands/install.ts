@@ -2,6 +2,7 @@ import { existsSync, rmSync } from 'fs';
 import { parseConfigFile } from '../../core/config.js';
 import { readLockFile, writeLockFile } from '../../core/lockfile.js';
 import { installPlugin } from '../../core/installer.js';
+import { resolveDependencies } from '../../core/dependencies.js';
 import type { InstalledPlugin } from '../../models/plugin.js';
 import { logInfo, logError, setVerbose } from '../../utils/logger.js';
 import { ConfigError, ValidationError } from '../../utils/errors.js';
@@ -74,6 +75,10 @@ export function install(options: InstallOptions = {}): number {
     const config = parseConfigFile(configPath);
     logInfo(`Found ${config.plugins.length} plugin(s) in configuration`);
 
+    // Resolve dependencies and get installation order
+    const orderedPlugins = resolveDependencies(config.plugins);
+    logInfo(`Resolved installation order based on dependencies`);
+
     // Read lock file (or create empty if doesn't exist)
     const lockPath = getLockFilePath(configPath);
     const lockFile = readLockFile(lockPath);
@@ -87,8 +92,8 @@ export function install(options: InstallOptions = {}): number {
       errors: [] as string[]
     };
 
-    // Install/update each plugin
-    for (const plugin of config.plugins) {
+    // Install/update each plugin in dependency order
+    for (const plugin of orderedPlugins) {
       const status = installPlugin(plugin, config.installDir);
 
       switch (status.status) {
