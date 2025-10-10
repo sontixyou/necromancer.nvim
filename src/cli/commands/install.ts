@@ -6,6 +6,7 @@ import { resolveDependencies } from '../../core/dependencies.js';
 import type { InstalledPlugin } from '../../models/plugin.js';
 import { logInfo, logError, setVerbose } from '../../utils/logger.js';
 import { ConfigError, ValidationError } from '../../utils/errors.js';
+import { resolvePluginPath, compressTilde } from '../../utils/paths.js';
 
 /**
  * Install command options
@@ -118,14 +119,15 @@ export function install(options: InstallOptions = {}): number {
 
       // Update lock file with successful installations
       if (status.status === 'success' || status.status === 'updated' || status.status === 'skipped') {
+        const absolutePath = resolvePluginPath(plugin.name, config.installDir);
+        const tildePath = compressTilde(absolutePath);
+
         const installedPlugin: InstalledPlugin = {
           name: plugin.name,
           repo: plugin.repo,
           commit: plugin.commit,
           installedAt: new Date().toISOString(),
-          path: config.installDir
-            ? `${config.installDir}/${plugin.name}`
-            : `${process.env.HOME}/.local/share/nvim/necromancer/plugins/${plugin.name}`
+          path: tildePath
         };
 
         // Update or add to lock file

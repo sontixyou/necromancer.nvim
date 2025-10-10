@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
-import { resolvePluginPath, expandTilde, getDefaultInstallDir } from '../../src/utils/paths.js';
+import { resolvePluginPath, expandTilde, compressTilde, getDefaultInstallDir } from '../../src/utils/paths.js';
 import os from 'os';
 
 describe('Path Resolution', () => {
@@ -91,6 +91,40 @@ describe('Path Resolution', () => {
     it('should expand tilde with trailing slash', () => {
       const expanded = expandTilde('~/');
       expect(expanded).toBe(`${os.homedir()}/`);
+    });
+  });
+
+  describe('compressTilde', () => {
+    it('should compress home directory to tilde', () => {
+      const homeDir = os.homedir();
+      const compressed = compressTilde(`${homeDir}/test/path`);
+      expect(compressed).toMatch(/^~[\/\\]test[\/\\]path$/);
+    });
+
+    it('should not modify paths outside home directory', () => {
+      const path = '/opt/nvim/plugins';
+      expect(compressTilde(path)).toBe(path);
+    });
+
+    it('should compress home directory itself to tilde', () => {
+      const homeDir = os.homedir();
+      const compressed = compressTilde(homeDir);
+      expect(compressed).toBe('~');
+    });
+
+    it('should handle normalized paths', () => {
+      const homeDir = os.homedir();
+      const pathWithDots = `${homeDir}/test/../test/path`;
+      const compressed = compressTilde(pathWithDots);
+      expect(compressed).toMatch(/^~[\/\\]test[\/\\]path$/);
+    });
+
+    it('should be reversible with expandTilde', () => {
+      const homeDir = os.homedir();
+      const originalPath = `${homeDir}/.local/share/nvim/plugins`;
+      const compressed = compressTilde(originalPath);
+      const expanded = expandTilde(compressed);
+      expect(expanded).toBe(originalPath);
     });
   });
 

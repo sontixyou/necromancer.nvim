@@ -4,6 +4,7 @@ import { readLockFile } from '../../core/lockfile.js';
 import { getCurrentCommit } from '../../core/git.js';
 import { logInfo, logError, setVerbose } from '../../utils/logger.js';
 import { ConfigError } from '../../utils/errors.js';
+import { expandTilde } from '../../utils/paths.js';
 
 /**
  * List command options
@@ -86,7 +87,8 @@ export function list(options: ListOptions = {}): number {
       }
 
       // Check if directory exists
-      if (!existsSync(installed.path)) {
+      const absolutePath = expandTilde(installed.path);
+      if (!existsSync(absolutePath)) {
         logInfo(`✗ ${plugin.name.padEnd(30)} [${plugin.commit.substring(0, 8)}] directory not found`);
         notInstalled++;
         continue;
@@ -94,7 +96,7 @@ export function list(options: ListOptions = {}): number {
 
       // Try to get current commit
       try {
-        const currentCommit = getCurrentCommit(installed.path);
+        const currentCommit = getCurrentCommit(absolutePath);
 
         if (currentCommit === plugin.commit) {
           if (options.verbose) {

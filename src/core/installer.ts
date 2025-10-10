@@ -1,7 +1,7 @@
 import { existsSync, rmSync } from 'fs';
 import type { PluginDefinition, InstalledPlugin, InstallationStatus } from '../models/plugin.js';
 import { gitClone, gitCheckout, getCurrentCommit } from './git.js';
-import { resolvePluginPath } from '../utils/paths.js';
+import { resolvePluginPath, expandTilde } from '../utils/paths.js';
 import { GitError } from '../utils/errors.js';
 
 /**
@@ -11,13 +11,16 @@ import { GitError } from '../utils/errors.js';
  */
 export function verifyInstallation(installed: InstalledPlugin): boolean {
   try {
+    // Expand tilde in path
+    const absolutePath = expandTilde(installed.path);
+
     // Check if directory exists
-    if (!existsSync(installed.path)) {
+    if (!existsSync(absolutePath)) {
       return false;
     }
 
     // Check if it's a valid git repository by trying to get current commit
-    const currentCommit = getCurrentCommit(installed.path);
+    const currentCommit = getCurrentCommit(absolutePath);
 
     // If we can get the commit, the git repo is valid
     return currentCommit.length === 40;
@@ -30,24 +33,27 @@ export function verifyInstallation(installed: InstalledPlugin): boolean {
 /**
  * Repair a corrupted plugin installation by re-cloning
  * @param def - Plugin definition to repair
- * @param targetPath - Full path to plugin directory
+ * @param targetPath - Full path to plugin directory (may contain tilde)
  * @throws GitError if repair fails
  */
 export function repairPlugin(def: PluginDefinition, targetPath: string): void {
+  // Expand tilde in path
+  const absolutePath = expandTilde(targetPath);
+
   // Remove corrupted installation if it exists
-  if (existsSync(targetPath)) {
+  if (existsSync(absolutePath)) {
     try {
-      rmSync(targetPath, { recursive: true, force: true });
+      rmSync(absolutePath, { recursive: true, force: true });
     } catch (error) {
       throw new GitError(`Failed to remove corrupted plugin directory: ${(error as Error).message}`);
     }
   }
 
   // Clone fresh copy
-  gitClone(def.repo, targetPath);
+  gitClone(def.repo, absolutePath);
 
   // Checkout the specified commit
-  gitCheckout(targetPath, def.commit);
+  gitCheckout(absolutePath, def.commit);
 }
 
 /**
