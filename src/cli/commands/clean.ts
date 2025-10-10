@@ -3,6 +3,7 @@ import { parseConfigFile } from '../../core/config.js';
 import { readLockFile, writeLockFile } from '../../core/lockfile.js';
 import { logInfo, logError } from '../../utils/logger.js';
 import { ConfigError } from '../../utils/errors.js';
+import { expandTilde } from '../../utils/paths.js';
 
 /**
  * Clean command options
@@ -120,8 +121,9 @@ export function clean(options: CleanOptions = {}): number {
 
     for (const orphan of orphanedPlugins) {
       try {
-        if (existsSync(orphan.path)) {
-          rmSync(orphan.path, { recursive: true, force: true });
+        const absolutePath = expandTilde(orphan.path);
+        if (existsSync(absolutePath)) {
+          rmSync(absolutePath, { recursive: true, force: true });
           logInfo(`✓ Removed ${orphan.name}`);
           removed++;
         } else {

@@ -26,6 +26,33 @@ export function expandTilde(filePath: string): string {
 }
 
 /**
+ * Compress home directory to tilde (~) notation
+ * @param filePath - Absolute path that may start with home directory
+ * @returns Path with home directory replaced by tilde
+ */
+export function compressTilde(filePath: string): string {
+  const homeDir = os.homedir();
+  const pathModule = getPathModule();
+
+  // Normalize paths for comparison
+  const normalizedPath = pathModule.normalize(filePath);
+  const normalizedHome = pathModule.normalize(homeDir);
+
+  // Check if path starts with home directory
+  if (normalizedPath === normalizedHome) {
+    return '~';
+  }
+
+  // For cross-platform compatibility, check with trailing separator
+  const homeWithSep = normalizedHome + pathModule.sep;
+  if (normalizedPath.startsWith(homeWithSep)) {
+    return '~' + pathModule.sep + normalizedPath.slice(homeWithSep.length);
+  }
+
+  return filePath;
+}
+
+/**
  * Get the default installation directory based on platform
  * @returns Default installation directory path
  */
