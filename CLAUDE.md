@@ -37,8 +37,17 @@ npm test -- --watch
 # Run specific test file
 npm test -- tests/unit/validator.test.ts
 
+# Run tests matching a pattern (e.g., all files with "install")
+npm test -- install
+
+# Run a specific test within a file (by test name)
+npm test -- -t "validates GitHub URLs"
+
 # Run tests with coverage
 npm test -- --coverage
+
+# Run tests in UI mode (interactive)
+npm test -- --ui
 ```
 
 ### Running the CLI (Development)
@@ -61,6 +70,12 @@ node dist/cli/index.js install --verbose
 - All operations use sync APIs: `execSync`, `readFileSync`, `writeFileSync`
 - No Promises or async/await (except in test helpers for Vitest compatibility)
 - Git operations execute sequentially with `execSync`
+
+**ESM Module Requirements (CRITICAL)**
+- All imports MUST use `.js` extensions in import paths (even for `.ts` source files)
+- Example: `import { foo } from '../../src/core/validator.js'` (NOT `.ts`)
+- This is required for proper ESM module resolution at runtime with TypeScript
+- Forgetting this will cause runtime errors despite TypeScript compiling successfully
 
 **Data Flow**
 ```
@@ -99,6 +114,7 @@ execSync(`git clone "${url}" "${targetPath}"`, {
 - `git.ts`: Git operations via execSync
 - `installer.ts`: Installation orchestration
 - `validator.ts`: Input validation and sanitization
+- `dependencies.ts`: Plugin dependency resolution and topological sorting
 
 **src/cli/** - CLI interface
 - `cli/commands/`: Individual command handlers
@@ -129,12 +145,46 @@ execSync(`git clone "${url}" "${targetPath}"`, {
 - Commit hashes: `/^[a-f0-9]{40}$/i`
 - Plugin names: `/^[\w-]{1,100}$/`
 
+### Plugin Dependencies Architecture
+
+**Dependency Resolution**
+- Plugins can specify dependencies on other plugins in the config via the `dependencies` field
+- Dependencies are resolved using **topological sorting** (Kahn's algorithm) to determine installation order
+- Implementation: `src/core/dependencies.ts:11` - `resolveDependencies()` function
+
+**Dependency Validation Rules**
+1. All dependencies must reference existing plugins in the configuration
+2. Circular dependencies are detected and rejected with ValidationError
+3. Transitive dependencies are handled automatically
+4. Missing dependencies cause immediate validation failure
+
+**Example Dependency Graph**
+```json
+{
+  "plugins": [
+    { "name": "plenary.nvim", ... },
+    { "name": "telescope.nvim", "dependencies": ["plenary.nvim"], ... },
+    { "name": "telescope-ui-select.nvim", "dependencies": ["telescope.nvim"], ... }
+  ]
+}
+```
+Installation order: `plenary.nvim` → `telescope.nvim` → `telescope-ui-select.nvim`
+
+**Key Implementation Details**
+- Uses in-degree counting for each plugin (how many dependencies point to it)
+- Plugins with zero in-degree (no dependents) are processed first
+- Gradually removes edges and processes plugins as their dependencies are satisfied
+- If not all plugins are processed, a circular dependency exists
+
 ## Testing Strategy
 
-**Vitest Configuration**
-- Globals disabled - always use explicit imports: `import { describe, it, expect } from 'vitest'`
-- ESM modules - import from `.js` extensions even though source is `.ts` (TypeScript ESM requirement)
-- Coverage with v8 provider (reports in `./coverage`)
+**Vitest Configuration** (vitest.config.ts)
+- **Globals disabled** - always use explicit imports: `import { describe, it, expect } from 'vitest'`
+- **ESM modules** - import from `.js` extensions even though source is `.ts` (TypeScript ESM requirement)
+- **Test timeout**: 10 seconds (suitable for git operations in integration tests)
+- **Coverage**: v8 provider with text/json/html reports (coverage in `./coverage`)
+- **Test pattern**: `tests/**/*.test.ts`
+- **Coverage includes**: `src/**/*.ts` (excludes test files and dist/)
 
 **Unit Tests** (tests/unit/)
 - Mock fs and child_process modules using Vitest's mock functions
@@ -254,11 +304,6 @@ Key compiler options (tsconfig.json):
 - `sourceMap: false` (no source maps for smaller dist size)
 - `declaration: true` (type definitions for consumers)
 - `declarationMap: false` (no declaration maps for smaller dist size)
-
-**Important ESM Requirements**:
-- All imports must use `.js` extensions in import paths (even for `.ts` files)
-- Example: `import { foo } from '../../src/core/validator.js'` (not `.ts`)
-- This is required for proper ESM module resolution at runtime
 
 **Distribution Package**:
 - Published files (package.json `files` field): `dist/`, `README.md`, `LICENSE`
