@@ -317,4 +317,110 @@ describe('Install Command Integration Tests', () => {
       expect(lockFile.plugins.find(p => p.name === 'dep-2')).toBeDefined();
     });
   });
+
+  /**
+   * Test for installedAt timestamp preservation
+   */
+  describe('installedAt timestamp preservation', () => {
+    it('should not update installedAt when plugin is already at the same commit', async () => {
+      // First install a plugin
+      const config: ConfigFile = {
+        plugins: [
+          {
+            name: 'test-plugin',
+            repo: testRepoPath,
+            commit: commit1
+          }
+        ],
+        installDir
+      };
+
+      writeFileSync(configPath, JSON.stringify(config, null, 2));
+
+      const { install } = await import('../../src/cli/commands/install.js');
+      
+      // First installation
+      const exitCode1 = await install({ config: configPath });
+      expect(exitCode1).toBe(0);
+
+      // Read the lock file to get the original installedAt timestamp
+      const lockFile1: LockFile = JSON.parse(readFileSync(lockPath, 'utf-8'));
+      expect(lockFile1.plugins).toHaveLength(1);
+      const originalInstalledAt = lockFile1.plugins[0]?.installedAt;
+      expect(originalInstalledAt).toBeDefined();
+
+      // Wait a bit to ensure any new timestamp would be different
+      await new Promise(resolve => setTimeout(resolve, 100));
+
+      // Run install again with the same config (should skip installation)
+      const exitCode2 = await install({ config: configPath });
+      expect(exitCode2).toBe(0);
+
+      // Read the lock file again to check if installedAt was preserved
+      const lockFile2: LockFile = JSON.parse(readFileSync(lockPath, 'utf-8'));
+      expect(lockFile2.plugins).toHaveLength(1);
+      const newInstalledAt = lockFile2.plugins[0]?.installedAt;
+
+      // The installedAt timestamp should NOT have changed since commit is the same
+      expect(newInstalledAt).toBe(originalInstalledAt);
+    });
+
+    it('should update installedAt when plugin is updated to a different commit', async () => {
+      // First install a plugin with commit1
+      const config1: ConfigFile = {
+        plugins: [
+          {
+            name: 'test-plugin',
+            repo: testRepoPath,
+            commit: commit1
+          }
+        ],
+        installDir
+      };
+
+      writeFileSync(configPath, JSON.stringify(config1, null, 2));
+
+      const { install } = await import('../../src/cli/commands/install.js');
+      
+      // First installation
+      const exitCode1 = await install({ config: configPath });
+      expect(exitCode1).toBe(0);
+
+      // Read the lock file to get the original installedAt timestamp
+      const lockFile1: LockFile = JSON.parse(readFileSync(lockPath, 'utf-8'));
+      expect(lockFile1.plugins).toHaveLength(1);
+      const originalInstalledAt = lockFile1.plugins[0]?.installedAt;
+      expect(originalInstalledAt).toBeDefined();
+
+      // Wait a bit to ensure any new timestamp would be different
+      await new Promise(resolve => setTimeout(resolve, 100));
+
+      // Update config to use commit2 (different commit)
+      const config2: ConfigFile = {
+        plugins: [
+          {
+            name: 'test-plugin',
+            repo: testRepoPath,
+            commit: commit2
+          }
+        ],
+        installDir
+      };
+
+      writeFileSync(configPath, JSON.stringify(config2, null, 2));
+
+      // Run install again with different commit (should update installation)
+      const exitCode2 = await install({ config: configPath });
+      expect(exitCode2).toBe(0);
+
+      // Read the lock file again to check if installedAt was updated
+      const lockFile2: LockFile = JSON.parse(readFileSync(lockPath, 'utf-8'));
+      expect(lockFile2.plugins).toHaveLength(1);
+      const newInstalledAt = lockFile2.plugins[0]?.installedAt;
+
+      // The installedAt timestamp SHOULD have changed since commit is different
+      expect(newInstalledAt).not.toBe(originalInstalledAt);
+      expect(lockFile2.plugins[0]?.commit).toBe(commit2);
+    });
+  });
 });

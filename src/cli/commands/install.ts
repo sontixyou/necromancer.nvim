@@ -122,16 +122,25 @@ export function install(options: InstallOptions = {}): number {
         const absolutePath = resolvePluginPath(plugin.name, config.installDir);
         const tildePath = compressTilde(absolutePath);
 
+        // Find existing plugin in lock file
+        const existingIndex = lockFile.plugins.findIndex(p => p.name === plugin.name);
+        const existingPlugin = existingIndex >= 0 ? lockFile.plugins[existingIndex] : undefined;
+
+        // For skipped installs (same commit), preserve the original installedAt timestamp
+        // For new installs or updates, use current timestamp
+        const installedAt = (status.status === 'skipped' && existingPlugin && existingPlugin.commit === plugin.commit)
+          ? existingPlugin.installedAt
+          : new Date().toISOString();
+
         const installedPlugin: InstalledPlugin = {
           name: plugin.name,
           repo: plugin.repo,
           commit: plugin.commit,
-          installedAt: new Date().toISOString(),
+          installedAt,
           path: tildePath
         };
 
         // Update or add to lock file
-        const existingIndex = lockFile.plugins.findIndex(p => p.name === plugin.name);
         if (existingIndex >= 0) {
           lockFile.plugins[existingIndex] = installedPlugin;
         } else {
