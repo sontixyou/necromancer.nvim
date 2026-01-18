@@ -1,0 +1,45 @@
+name: Lua Tests
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'lua/**'
+      - 'tests/necromancer/**'
+      - 'tests/minimal_init.lua'
+      - '.github/workflows/lua-tests.yml'
+  pull_request:
+    branches: [main]
+    paths:
+      - 'lua/**'
+      - 'tests/necromancer/**'
+      - 'tests/minimal_init.lua'
+      - '.github/workflows/lua-tests.yml'
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        neovim_version: ['stable', 'nightly']
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@08eba0b27e820071cde6df949e0beb9ba4906955 # v4.3.0
+
+      - name: Install Neovim
+        uses: rhysd/action-setup-vim@19e3dd31a84dbc2c5445d65e9b363f616cab96c1 # v1.6.0
+        with:
+          neovim: true
+          version: ${{ matrix.neovim_version }}
+
+      - name: Install plenary.nvim
+        run: |
+          mkdir -p test_deps
+          git clone --depth 1 https://github.com/nvim-lua/plenary.nvim test_deps/plenary.nvim
+
+      - name: Run Lua tests
+        run: |
+          nvim --version
+          nvim --headless -u tests/minimal_init.lua \
+            -c "PlenaryBustedDirectory tests/necromancer/ {minimal_init = 'tests/minimal_init.lua', sequential = true}"
