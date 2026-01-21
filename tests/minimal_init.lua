@@ -1,2 +1,3 @@
 vim.opt.rtp:prepend(".")
--- plenary.nvim location will be configured by test runner
+-- Add plenary.nvim to runtime path
+vim.opt.rtp:append(vim.fn.expand("~/.local/share/nvim/lazy/plenary.nvim"))
