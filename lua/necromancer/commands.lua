@@ -5,9 +5,27 @@ local paths = require("necromancer.utils.paths")
 
 local M = {}
 
+---Find a plugin by name in the plugins list
+---@param plugins table[] List of plugin definitions
+---@param name string Plugin name to find
+---@return table|nil plugin Plugin definition or nil if not found
+local function find_plugin_by_name(plugins, name)
+  for _, p in ipairs(plugins) do
+    if p.name == name then
+      return p
+    end
+  end
+  return nil
+end
+
 ---Install all plugins or a specific plugin
 ---@param args string[] Command arguments (optional plugin name)
 function M.cmd_install(args)
+  -- Validate args - at most one plugin name allowed
+  if #args > 1 then
+    vim.notify("Usage: :Necromancer install [plugin_name]", vim.log.levels.ERROR)
+    return
+  end
   local plugin_name = args[1]
 
   -- Find config file
@@ -37,14 +55,7 @@ function M.cmd_install(args)
   local results
   if plugin_name then
     -- Install specific plugin
-    local plugin_def = nil
-    for _, p in ipairs(cfg.plugins) do
-      if p.name == plugin_name then
-        plugin_def = p
-        break
-      end
-    end
-
+    local plugin_def = find_plugin_by_name(cfg.plugins, plugin_name)
     if not plugin_def then
       vim.notify("Plugin not found in config: " .. plugin_name, vim.log.levels.ERROR)
       return
@@ -66,14 +77,7 @@ function M.cmd_install(args)
       success_count = success_count + 1
 
       -- Find the plugin definition to get full info
-      local plugin_def = nil
-      for _, p in ipairs(cfg.plugins) do
-        if p.name == result.name then
-          plugin_def = p
-          break
-        end
-      end
-
+      local plugin_def = find_plugin_by_name(cfg.plugins, result.name)
       if plugin_def and (result.action == "installed" or result.action == "updated") then
         -- Update lockfile entry
         local lock_entry = {
@@ -194,16 +198,9 @@ function M.cmd_init()
     },
   }
 
-  -- Write config file with pretty formatting
+  -- Write config file with pretty formatting using vim.json
   local json = vim.json.encode(default_config)
-  -- Pretty print the JSON
-  local pretty_json = vim.fn.system({ "python3", "-m", "json.tool" }, json)
-  if vim.v.shell_error ~= 0 then
-    -- Fallback if python not available
-    pretty_json = json
-  end
-
-  vim.fn.writefile(vim.split(pretty_json, "\n"), config_path)
+  vim.fn.writefile({ json }, config_path)
   vim.notify("Created config file: " .. config_path, vim.log.levels.INFO)
 end
 
