@@ -51,7 +51,7 @@ This will:
 Open Neovim and run:
 
 ```vim
-:Necromancer status
+:Necromancer list
 ```
 
 ## Quick Start
@@ -103,54 +103,42 @@ require('telescope').setup{}
 
 All commands are available via the `:Necromancer` command:
 
-### `:Necromancer install`
+### `:Necromancer install [plugin]`
 
-Install all plugins from configuration file.
+Install all plugins from configuration file, or a specific plugin by name.
 
 ```vim
+" Install all plugins
 :Necromancer install
+
+" Install a specific plugin
+:Necromancer install telescope.nvim
 ```
 
-### `:Necromancer update`
+### `:Necromancer list`
 
-Update plugins to versions specified in config.
+Show installed plugins in a floating window.
 
 ```vim
-:Necromancer update
+:Necromancer list
 ```
 
-### `:Necromancer status`
+### `:Necromancer init`
 
-Show status of all configured plugins.
+Create a new `.necromancer.json` configuration file in the current directory.
 
 ```vim
-:Necromancer status
+:Necromancer init
 ```
 
-**Output:**
-```
-plenary.nvim      [a3e3bc82]  up-to-date
-nvim-treesitter   [0dfbf5e4]  outdated (installed: [abc12345])
-telescope.nvim    -           not installed
+### Planned Commands (Future Releases)
 
-3 plugins total: 1 up-to-date, 1 outdated, 1 not installed
-```
+The following commands are planned for future releases:
 
-### `:Necromancer clean`
-
-Remove plugins no longer in configuration.
-
-```vim
-:Necromancer clean
-```
-
-### `:Necromancer verify`
-
-Verify plugin installations are intact and repair if needed.
-
-```vim
-:Necromancer verify
-```
+- `:Necromancer update [plugin]` - Update plugins to versions specified in config
+- `:Necromancer status` - Show status of all configured plugins
+- `:Necromancer clean` - Remove plugins no longer in configuration
+- `:Necromancer verify` - Verify plugin installations are intact and repair if needed
 
 ## Configuration File Format
 
@@ -238,7 +226,7 @@ Necromancer maintains a `.necromancer.lock` file that tracks:
 
 ### Plugin not showing in Neovim
 
-1. Verify installation: `:Necromancer status`
+1. Verify installation: `:Necromancer list`
 2. Check Neovim runtimepath: `:lua print(vim.inspect(vim.opt.runtimepath:get()))`
 3. Verify plugin directory exists: `ls ~/.local/share/nvim/necromancer/plugins/`
 
@@ -263,18 +251,17 @@ Necromancer maintains a `.necromancer.lock` file that tracks:
 
 1. Verify commit exists in repository: Visit GitHub and check commit history
 2. Ensure full 40-character hash is used (not short hash like `abc1234`)
-3. Try verifying/repairing: `:Necromancer verify`
+3. Try reinstalling: `:Necromancer install <plugin-name>`
 
 ### Corrupted installation
 
-If a plugin installation is corrupted:
+If a plugin installation is corrupted, reinstall it:
 
 ```vim
-" Detect and auto-repair
-:Necromancer verify
+:Necromancer install <plugin-name>
 ```
 
-Necromancer will re-clone the corrupted plugin at the correct commit.
+Necromancer will detect and auto-repair corrupted installations during install.
 
 ## Migration from v1.x (TypeScript)
 

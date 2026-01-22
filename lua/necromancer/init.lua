@@ -1,6 +1,6 @@
 local M = {}
 
-M._VERSION = "2.0.0-dev"
+M._VERSION = "2.0.0"
 
 ---Setup necromancer plugin manager
 ---@param opts? table Optional configuration
