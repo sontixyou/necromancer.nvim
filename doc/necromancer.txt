@@ -1,0 +1,274 @@
+*necromancer.txt*  Deterministic Neovim plugin manager using commit hashes
+
+==============================================================================
+CONTENTS                                                  *necromancer-contents*
+
+    1. Introduction ............................ |necromancer-introduction|
+    2. Installation ............................ |necromancer-installation|
+    3. Configuration ........................... |necromancer-configuration|
+    4. Commands ................................ |necromancer-commands|
+    5. Plugin Definition ....................... |necromancer-plugin-definition|
+
+==============================================================================
+1. INTRODUCTION                                       *necromancer-introduction*
+
+Necromancer is a deterministic Neovim plugin manager that uses Git commit
+hashes (not tags or branches) for version control. This ensures reproducible
+plugin installations across different machines and over time.
+
+Key Features:
+- Deterministic versioning using 40-character SHA-1 commit hashes
+- Zero runtime dependencies (pure Lua implementation)
+- Synchronous operation for predictable behavior
+- Dependency resolution with topological sorting
+- Lock file for tracking installed plugin states
+
+==============================================================================
+2. INSTALLATION                                       *necromancer-installation*
+
+Add the following bootstrap code to your Neovim configuration
+(~/.config/nvim/init.lua or equivalent):
+>lua
+    -- Bootstrap necromancer
+    local necromancer_path = vim.fn.stdpath("data") .. "/necromancer.nvim"
+    if not vim.loop.fs_stat(necromancer_path) then
+      vim.fn.system({
+        "git",
+        "clone",
+        "https://github.com/sontixyou/necromancer.nvim",
+        necromancer_path,
+      })
+    end
+    vim.opt.rtp:prepend(necromancer_path)
+
+    -- Setup necromancer
+    require("necromancer").setup()
+<
+
+After installation, create a configuration file (see |necromancer-configuration|)
+and run `:Necromancer install` to install your plugins.
+
+Setup Options ~
+                                                           *necromancer.setup()*
+
+The `setup()` function accepts an optional table with the following fields:
+
+    `config_path`   (string|nil) Custom path to configuration file.
+                    Default: searches for `.necromancer.json` in current
+                    directory, then `~/.config/necromancer/config.json`
+
+    `install_dir`   (string|nil) Custom plugin installation directory.
+                    Default: `~/.local/share/nvim/necromancer/plugins`
+                    (Windows: `%LOCALAPPDATA%\nvim\necromancer\plugins`)
+
+Example with custom options:
+>lua
+    require("necromancer").setup({
+      config_path = "~/.config/nvim/.necromancer.json",
+      install_dir = "~/.local/share/nvim/site/pack/necromancer/opt",
+    })
+<
+
+==============================================================================
+3. CONFIGURATION                                     *necromancer-configuration*
+
+Necromancer uses a JSON configuration file to define plugins.
+
+Configuration File Locations ~
+
+Necromancer searches for configuration files in the following order:
+1. `.necromancer.json` in the current working directory
+2. `~/.config/necromancer/config.json` (global configuration)
+
+Configuration File Format ~
+                                                       *necromancer-config-file*
+
+The configuration file is a JSON object with a `plugins` array:
+>json
+    {
+      "plugins": [
+        {
+          "name": "plenary.nvim",
+          "repo": "https://github.com/nvim-lua/plenary.nvim",
+          "commit": "a3e3bc82a3f95c5ed0d7201546d5d2c19b20d683"
+        },
+        {
+          "name": "telescope.nvim",
+          "repo": "https://github.com/nvim-telescope/telescope.nvim",
+          "commit": "b5833a682c511885887373aad76272ad70f7b3c2",
+          "dependencies": ["plenary.nvim"]
+        }
+      ]
+    }
+<
+
+Lock File ~
+                                                           *necromancer-lockfile*
+
+After installation, Necromancer creates a lock file (`.necromancer.lock`)
+alongside the configuration file. This file tracks the installation state
+of each plugin, including:
+
+- Plugin name, repository, and commit hash
+- Installation path
+- Installation timestamp
+
+The lock file should be committed to version control for reproducible builds.
+
+==============================================================================
+4. COMMANDS                                               *necromancer-commands*
+
+Necromancer provides the `:Necromancer` command with the following subcommands:
+
+                                                        *:Necromancer-install*
+:Necromancer install [plugin]
+                Install all plugins or a specific plugin.
+
+                Without arguments, installs all plugins defined in the
+                configuration file in dependency order.
+
+                With a plugin name argument, installs only that specific
+                plugin.
+
+                Examples: >
+                    :Necromancer install
+                    :Necromancer install telescope.nvim
+<
+                The command will:
+                - Skip plugins already at the correct commit
+                - Update plugins that are at a different commit
+                - Install new plugins that don't exist yet
+                - Repair corrupted installations automatically
+
+                                                            *:Necromancer-list*
+:Necromancer list
+                Display a floating window showing all installed plugins
+                with their current commit hashes.
+
+                Press `q` or `<Esc>` to close the window.
+
+                                                            *:Necromancer-init*
+:Necromancer init
+                Create a new `.necromancer.json` configuration file in the
+                current directory with a sample plugin configuration.
+
+                This command will fail if a configuration file already exists.
+
+                Example output:
+>json
+                    {
+                      "plugins": [
+                        {
+                          "name": "plenary.nvim",
+                          "repo": "https://github.com/nvim-lua/plenary.nvim",
+                          "commit": "a3e3bc82a3f95c5ed0d7201546d5d2c19b20d683"
+                        }
+                      ]
+                    }
+<
+
+Command Completion ~
+
+The `:Necromancer` command supports tab completion for:
+- Subcommands (install, list, init)
+- Plugin names (for the `install` subcommand)
+
+==============================================================================
+5. PLUGIN DEFINITION                             *necromancer-plugin-definition*
+
+Each plugin in the configuration file is defined with the following fields:
+
+                                                     *necromancer-plugin-name*
+name ~
+    Type: string (required)
+    Pattern: alphanumeric characters, hyphens, underscores (1-100 chars)
+
+    A unique identifier for the plugin. This is used as the installation
+    directory name and for referencing in dependencies.
+
+    Examples: "plenary.nvim", "telescope.nvim", "nvim-treesitter"
+
+                                                     *necromancer-plugin-repo*
+repo ~
+    Type: string (required)
+    Pattern: https://github.com/{owner}/{repo}[.git]
+
+    The GitHub repository URL. Must be an HTTPS URL to a valid GitHub
+    repository.
+
+    Examples:
+        "https://github.com/nvim-lua/plenary.nvim"
+        "https://github.com/nvim-telescope/telescope.nvim.git"
+
+                                                   *necromancer-plugin-commit*
+commit ~
+    Type: string (required)
+    Pattern: 40-character hexadecimal (SHA-1 hash)
+
+    The exact Git commit hash to install. Must be a full 40-character
+    SHA-1 hash (not a short hash, tag, or branch name).
+
+    This ensures deterministic, reproducible installations.
+
+    Example: "a3e3bc82a3f95c5ed0d7201546d5d2c19b20d683"
+
+    To get a commit hash, use: >
+        git ls-remote https://github.com/owner/repo HEAD
+<
+    Or from an existing clone: >
+        git rev-parse HEAD
+<
+                                             *necromancer-plugin-dependencies*
+dependencies ~
+    Type: array of strings (optional)
+
+    A list of plugin names that this plugin depends on. Dependencies are
+    installed before the dependent plugin using topological sorting.
+
+    Each dependency must be the name of another plugin defined in the
+    same configuration file.
+
+    Example:
+>json
+        {
+          "name": "telescope.nvim",
+          "repo": "https://github.com/nvim-telescope/telescope.nvim",
+          "commit": "b5833a682c511885887373aad76272ad70f7b3c2",
+          "dependencies": ["plenary.nvim"]
+        }
+<
+
+    Validation:
+    - All dependencies must reference existing plugins in the configuration
+    - Circular dependencies are detected and rejected
+    - Missing dependencies cause a validation error
+
+Example Complete Configuration ~
+>json
+    {
+      "plugins": [
+        {
+          "name": "plenary.nvim",
+          "repo": "https://github.com/nvim-lua/plenary.nvim",
+          "commit": "a3e3bc82a3f95c5ed0d7201546d5d2c19b20d683"
+        },
+        {
+          "name": "telescope.nvim",
+          "repo": "https://github.com/nvim-telescope/telescope.nvim",
+          "commit": "b5833a682c511885887373aad76272ad70f7b3c2",
+          "dependencies": ["plenary.nvim"]
+        },
+        {
+          "name": "telescope-ui-select.nvim",
+          "repo": "https://github.com/nvim-telescope/telescope-ui-select.nvim",
+          "commit": "6e51d7da30bd139a6950adf2a47fda6df9fa06d2",
+          "dependencies": ["telescope.nvim"]
+        }
+      ]
+    }
+<
+
+Installation order: plenary.nvim -> telescope.nvim -> telescope-ui-select.nvim
+
+==============================================================================
+vim:tw=78:ts=8:ft=help:norl:
