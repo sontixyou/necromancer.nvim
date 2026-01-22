@@ -1,0 +1,295 @@
+local config = require("necromancer.core.config")
+local installer = require("necromancer.core.installer")
+local lockfile = require("necromancer.core.lockfile")
+local paths = require("necromancer.utils.paths")
+
+local M = {}
+
+---Install all plugins or a specific plugin
+---@param args string[] Command arguments (optional plugin name)
+function M.cmd_install(args)
+  local plugin_name = args[1]
+
+  -- Find config file
+  local config_path = paths.resolve_config_path()
+  if not config_path then
+    vim.notify("Config file not found. Run :Necromancer init to create one.", vim.log.levels.ERROR)
+    return
+  end
+
+  -- Parse config
+  local ok, cfg = pcall(config.parse_config_file, config_path)
+  if not ok then
+    vim.notify("Failed to parse config: " .. tostring(cfg), vim.log.levels.ERROR)
+    return
+  end
+
+  -- Get install directory
+  local install_dir = paths.get_default_install_dir()
+
+  -- Ensure install directory exists
+  vim.fn.mkdir(install_dir, "p")
+
+  -- Get lock file path and read it
+  local lock_path = paths.get_lock_file_path(config_path)
+  local lock = lockfile.read(lock_path)
+
+  local results
+  if plugin_name then
+    -- Install specific plugin
+    local plugin_def = nil
+    for _, p in ipairs(cfg.plugins) do
+      if p.name == plugin_name then
+        plugin_def = p
+        break
+      end
+    end
+
+    if not plugin_def then
+      vim.notify("Plugin not found in config: " .. plugin_name, vim.log.levels.ERROR)
+      return
+    end
+
+    local result = installer.install_plugin(plugin_def, install_dir)
+    results = { result }
+  else
+    -- Install all plugins
+    results = installer.install_all(cfg.plugins, install_dir)
+  end
+
+  -- Update lockfile with results
+  local success_count = 0
+  local failed_count = 0
+
+  for _, result in ipairs(results) do
+    if result.success then
+      success_count = success_count + 1
+
+      -- Find the plugin definition to get full info
+      local plugin_def = nil
+      for _, p in ipairs(cfg.plugins) do
+        if p.name == result.name then
+          plugin_def = p
+          break
+        end
+      end
+
+      if plugin_def and (result.action == "installed" or result.action == "updated") then
+        -- Update lockfile entry
+        local lock_entry = {
+          name = result.name,
+          repo = plugin_def.repo,
+          commit = plugin_def.commit,
+          path = paths.compress_tilde(paths.resolve_plugin_path(result.name, install_dir)),
+          installedAt = result.installed_at,
+        }
+
+        -- Preserve installedAt for updates if not changed
+        if result.action == "updated" then
+          local existing = lockfile.find_plugin(lock, result.name)
+          if existing and existing.installedAt and not result.installed_at then
+            lock_entry.installedAt = existing.installedAt
+          end
+        end
+
+        lockfile.upsert_plugin(lock, lock_entry)
+      end
+
+      vim.notify(result.message, vim.log.levels.INFO)
+    else
+      failed_count = failed_count + 1
+      vim.notify(result.message or ("Failed to install: " .. result.name), vim.log.levels.ERROR)
+    end
+  end
+
+  -- Write lockfile
+  lockfile.write(lock_path, lock)
+
+  -- Summary
+  local summary = string.format("Installation complete: %d succeeded, %d failed", success_count, failed_count)
+  vim.notify(summary, failed_count > 0 and vim.log.levels.WARN or vim.log.levels.INFO)
+end
+
+---List installed plugins
+function M.cmd_list()
+  -- Find config file
+  local config_path = paths.resolve_config_path()
+  if not config_path then
+    vim.notify("Config file not found. Run :Necromancer init to create one.", vim.log.levels.WARN)
+    return
+  end
+
+  -- Get lock file path and read it
+  local lock_path = paths.get_lock_file_path(config_path)
+  local lock = lockfile.read(lock_path)
+
+  if #lock.plugins == 0 then
+    vim.notify("No plugins installed. Run :Necromancer install to install plugins.", vim.log.levels.INFO)
+    return
+  end
+
+  -- Build list output
+  local lines = { "Installed plugins:" }
+  for _, plugin in ipairs(lock.plugins) do
+    local line = string.format(
+      "  %s @ %s",
+      plugin.name,
+      plugin.commit and plugin.commit:sub(1, 8) or "unknown"
+    )
+    table.insert(lines, line)
+  end
+
+  -- Show in floating window
+  local buf = vim.api.nvim_create_buf(false, true)
+  vim.api.nvim_buf_set_lines(buf, 0, -1, false, lines)
+  vim.api.nvim_set_option_value("modifiable", false, { buf = buf })
+  vim.api.nvim_set_option_value("buftype", "nofile", { buf = buf })
+  vim.api.nvim_set_option_value("filetype", "necromancer", { buf = buf })
+
+  -- Calculate window size
+  local width = 60
+  local height = math.min(#lines + 2, 20)
+  local row = math.floor((vim.o.lines - height) / 2)
+  local col = math.floor((vim.o.columns - width) / 2)
+
+  local win = vim.api.nvim_open_win(buf, true, {
+    relative = "editor",
+    width = width,
+    height = height,
+    row = row,
+    col = col,
+    style = "minimal",
+    border = "rounded",
+    title = " Necromancer Plugins ",
+    title_pos = "center",
+  })
+
+  -- Close on q or <Esc>
+  vim.keymap.set("n", "q", function()
+    vim.api.nvim_win_close(win, true)
+  end, { buffer = buf, nowait = true })
+  vim.keymap.set("n", "<Esc>", function()
+    vim.api.nvim_win_close(win, true)
+  end, { buffer = buf, nowait = true })
+end
+
+---Generate a new .necromancer.json config file
+function M.cmd_init()
+  local config_path = ".necromancer.json"
+
+  -- Check if config already exists
+  if vim.fn.filereadable(config_path) == 1 then
+    vim.notify("Config file already exists: " .. config_path, vim.log.levels.WARN)
+    return
+  end
+
+  -- Create default config
+  local default_config = {
+    plugins = {
+      {
+        name = "plenary.nvim",
+        repo = "https://github.com/nvim-lua/plenary.nvim",
+        commit = "a3e3bc82a3f95c5ed0d7201546d5d2c19b20d683",
+      },
+    },
+  }
+
+  -- Write config file with pretty formatting
+  local json = vim.json.encode(default_config)
+  -- Pretty print the JSON
+  local pretty_json = vim.fn.system({ "python3", "-m", "json.tool" }, json)
+  if vim.v.shell_error ~= 0 then
+    -- Fallback if python not available
+    pretty_json = json
+  end
+
+  vim.fn.writefile(vim.split(pretty_json, "\n"), config_path)
+  vim.notify("Created config file: " .. config_path, vim.log.levels.INFO)
+end
+
+---Get list of available subcommands
+---@return string[]
+local function get_subcommands()
+  return { "install", "list", "init" }
+end
+
+---Get completions for :Necromancer command
+---@param arg_lead string Current argument being typed
+---@param cmd_line string Full command line
+---@param cursor_pos number Cursor position
+---@return string[]
+local function complete(arg_lead, cmd_line, cursor_pos)
+  local parts = vim.split(cmd_line:sub(1, cursor_pos), "%s+")
+  local num_args = #parts
+
+  -- First argument: subcommand
+  if num_args == 2 then
+    local subcommands = get_subcommands()
+    return vim.tbl_filter(function(cmd)
+      return vim.startswith(cmd, arg_lead)
+    end, subcommands)
+  end
+
+  -- Second argument for install: plugin names
+  if num_args == 3 and parts[2] == "install" then
+    local config_path = paths.resolve_config_path()
+    if not config_path then
+      return {}
+    end
+
+    local ok, cfg = pcall(config.parse_config_file, config_path)
+    if not ok then
+      return {}
+    end
+
+    local plugin_names = {}
+    for _, p in ipairs(cfg.plugins) do
+      if vim.startswith(p.name, arg_lead) then
+        table.insert(plugin_names, p.name)
+      end
+    end
+    return plugin_names
+  end
+
+  return {}
+end
+
+---Dispatch subcommand
+---@param opts table Command options from nvim_create_user_command
+local function dispatch(opts)
+  local args = opts.fargs
+  local subcommand = args[1]
+
+  if not subcommand then
+    vim.notify("Usage: :Necromancer <install|list|init> [args]", vim.log.levels.ERROR)
+    return
+  end
+
+  -- Remove subcommand from args
+  local subargs = {}
+  for i = 2, #args do
+    table.insert(subargs, args[i])
+  end
+
+  if subcommand == "install" then
+    M.cmd_install(subargs)
+  elseif subcommand == "list" then
+    M.cmd_list()
+  elseif subcommand == "init" then
+    M.cmd_init()
+  else
+    vim.notify("Unknown subcommand: " .. subcommand, vim.log.levels.ERROR)
+    vim.notify("Available commands: install, list, init", vim.log.levels.INFO)
+  end
+end
+
+---Register :Necromancer command with subcommand completion
+function M.setup()
+  vim.api.nvim_create_user_command("Necromancer", dispatch, {
+    nargs = "+",
+    complete = complete,
+    desc = "Necromancer plugin manager",
+  })
+end
+
+return M
