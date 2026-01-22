@@ -1,7 +1,6 @@
 local git = require("necromancer.core.git")
 local dependencies = require("necromancer.core.dependencies")
 local paths = require("necromancer.utils.paths")
-local errors = require("necromancer.utils.errors")
 
 local M = {}
 
@@ -27,9 +26,9 @@ function M.verify_installation(installed)
     return false, "Not a valid git repository: " .. absolute_path
   end
 
-  -- If we can get the commit, the git repo is valid
-  if #result ~= 40 then
-    return false, "Invalid git repository (commit hash is not 40 characters)"
+  -- Validate commit hash format (40 hex characters)
+  if #result ~= 40 or not result:match("^[0-9a-fA-F]+$") then
+    return false, "Invalid git repository (invalid commit hash format)"
   end
 
   return true, nil
@@ -69,6 +68,8 @@ function M.repair_plugin(def, target_path)
 
   if not checkout_ok then
     local msg = type(checkout_err) == "table" and checkout_err.message or tostring(checkout_err)
+    -- Clean up failed installation to prevent partial state
+    vim.fn.delete(absolute_path, "rf")
     return false, "Failed to checkout commit: " .. msg
   end
 
@@ -91,17 +92,13 @@ function M.install_plugin(def, install_dir)
 
   -- Check if plugin directory already exists
   if vim.fn.isdirectory(target_path) == 1 then
-    -- Create minimal InstalledPlugin for verification
-    local installed = {
+    -- Verify existing installation
+    local valid, verify_err = M.verify_installation({
       name = def.name,
       repo = def.repo,
       commit = def.commit,
       path = target_path,
-      installedAt = os.date("!%Y-%m-%dT%H:%M:%SZ"),
-    }
-
-    -- Verify existing installation
-    local valid, verify_err = M.verify_installation(installed)
+    })
 
     if not valid then
       -- Corrupted installation, repair it
