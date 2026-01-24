@@ -280,6 +280,52 @@ execSync(`git clone "${url}"`);
 function clonePlugin(def: PluginDefinition): void { ... }
 ```
 
+## Lua Rewrite Branch (lua-rewrite)
+
+プロジェクトはTypeScriptからLuaへの移行を進めています。`lua-rewrite`ブランチでは純粋なNeovimプラグインとして再実装中です。
+
+### Lua Development Commands
+
+```bash
+# 全テスト実行（TypeScript + Lua）
+make test
+
+# Luaテストのみ実行
+make test-lua
+
+# 特定のLuaテストファイルを実行
+make test-file FILE=tests/necromancer/core/config_spec.lua
+
+# テスト依存関係のインストール（plenary.nvim）
+make test-deps
+
+# クリーンアップ
+make clean
+```
+
+### Lua Project Structure
+
+```
+lua/necromancer/
+├── commands/     # ユーザーコマンド実装
+├── core/         # コアビジネスロジック
+├── models/       # データ型・構造体
+└── utils/        # ユーティリティ関数
+
+tests/necromancer/
+├── core/         # コアロジックのユニットテスト
+└── integration/  # 統合テスト
+
+plugin/           # Neovimプラグインエントリポイント
+```
+
+### Lua Testing with Plenary.nvim
+
+- テストは`plenary.busted`を使用
+- テストファイルは`_spec.lua`で終わる
+- `tests/minimal_init.lua`がテスト用の最小設定
+- CIはNeovim `stable`と`nightly`の両方でテスト実行
+
 ## Project Documentation
 
 For detailed specifications, see `specs/001-neovim-typescript-commit/`:
