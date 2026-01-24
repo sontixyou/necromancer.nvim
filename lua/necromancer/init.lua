@@ -6,6 +6,10 @@ M._VERSION = "2.0.0"
 ---@param opts? table Optional configuration
 ---  - config_path: string|nil - Custom path to config file
 ---  - install_dir: string|nil - Custom plugin installation directory
+---  - autofetch: boolean|table|nil - Auto-fetch necromancer updates on startup
+---    - enabled: boolean (default: true) - Enable/disable autofetch
+---    - notify_updates: boolean (default: true) - Show notification when updates are available
+---    - quiet: boolean (default: false) - Suppress debug messages
 function M.setup(opts)
   opts = opts or {}
 
@@ -33,6 +37,10 @@ function M.setup(opts)
   -- Register :Necromancer command
   local commands = require("necromancer.commands")
   commands.setup()
+
+  -- Start autofetch for necromancer itself
+  local autofetch = require("necromancer.core.autofetch")
+  autofetch.start(opts.autofetch)
 end
 
 return M

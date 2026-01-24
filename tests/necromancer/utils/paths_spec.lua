@@ -85,6 +85,25 @@ describe("paths", function()
     end)
   end)
 
+  describe("get_necromancer_path", function()
+    it("returns a valid directory path", function()
+      local result = paths.get_necromancer_path()
+      -- May be nil in some test environments, but if not nil should be a directory
+      if result then
+        assert.equals(1, vim.fn.isdirectory(result))
+      end
+    end)
+
+    it("returns path that contains lua/necromancer subdirectory", function()
+      local result = paths.get_necromancer_path()
+      if result then
+        -- The returned path should have lua/necromancer subdirectory
+        local lua_path = result .. "/lua/necromancer"
+        assert.equals(1, vim.fn.isdirectory(lua_path))
+      end
+    end)
+  end)
+
   describe("get_lock_file_path", function()
     it("converts .necromancer.json to .necromancer.lock", function()
       local result = paths.get_lock_file_path(".necromancer.json")

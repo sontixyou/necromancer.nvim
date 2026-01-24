@@ -70,6 +70,34 @@ function M.resolve_config_path(custom_path)
   return nil
 end
 
+---Get necromancer.nvim installation path
+---Uses debug.getinfo to determine the source file location
+---@return string|nil path Path to necromancer.nvim root directory, or nil if not found
+function M.get_necromancer_path()
+  -- Get the source path of this module
+  local info = debug.getinfo(1, "S")
+  if not info or not info.source then
+    return nil
+  end
+
+  -- Remove the leading @ from source path
+  local source = info.source
+  if source:sub(1, 1) == "@" then
+    source = source:sub(2)
+  end
+
+  -- This file is at lua/necromancer/utils/paths.lua
+  -- We need to go up 4 levels to get the plugin root
+  local path = vim.fn.fnamemodify(source, ":h:h:h:h")
+
+  -- Verify this is a valid directory
+  if vim.fn.isdirectory(path) == 1 then
+    return path
+  end
+
+  return nil
+end
+
 ---Get lock file path from config file path
 ---@param config_path string
 ---@return string
