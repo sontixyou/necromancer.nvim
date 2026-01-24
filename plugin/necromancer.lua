@@ -1,0 +1,2 @@
+-- Auto-loaded by Neovim
+-- Intentionally minimal - setup() handles initialization
