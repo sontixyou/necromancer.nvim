@@ -20,9 +20,7 @@
 
 - [ ] Code follows synchronous-only architecture (no async/await, Promises, or callbacks)
 - [ ] No external runtime dependencies added (only Node.js built-ins)
-- [ ] All imports use `.js` extensions (ESM requirement)
 - [ ] Git commands quote paths and validate inputs
-- [ ] TypeScript strict mode passes (`npm run lint`)
 - [ ] All tests pass (`npm test`)
 
 ## Related Issues
