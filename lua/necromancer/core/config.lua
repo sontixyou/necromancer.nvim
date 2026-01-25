@@ -1,4 +1,5 @@
 local errors = require("necromancer.utils.errors")
+local json = require("necromancer.utils.json")
 local validator = require("necromancer.core.validator")
 local dependencies = require("necromancer.core.dependencies")
 
@@ -155,8 +156,9 @@ function M.update_plugins_commits(config_path, updates)
   end
 
   -- Write back
-  local json = vim.json.encode(cfg)
-  vim.fn.writefile({ json }, config_path)
+  local json_str = json.encode_pretty(cfg)
+  local lines = vim.split(json_str, "\n", { plain = true })
+  vim.fn.writefile(lines, config_path)
 end
 
 return M
