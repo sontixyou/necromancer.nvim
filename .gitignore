@@ -35,3 +35,6 @@ temp/
 
 # Test dependencies (Lua)
 test_deps/
+
+# Git worktrees
+.worktrees/
