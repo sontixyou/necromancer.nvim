@@ -128,5 +128,166 @@ describe("config", function()
         config.validate_config(cfg)
       end)
     end)
+
+    it("accepts valid branch field", function()
+      local cfg = {
+        plugins = {
+          {
+            name = "test-plugin",
+            repo = "https://github.com/owner/test-plugin",
+            commit = "a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2",
+            branch = "main",
+          },
+        },
+      }
+      assert.has_no_error(function()
+        config.validate_config(cfg)
+      end)
+    end)
+
+    it("errors on invalid branch field", function()
+      local cfg = {
+        plugins = {
+          {
+            name = "test-plugin",
+            repo = "https://github.com/owner/test-plugin",
+            commit = "a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2",
+            branch = ";malicious",
+          },
+        },
+      }
+      assert.has_error(function()
+        config.validate_config(cfg)
+      end)
+    end)
+  end)
+
+  describe("update_plugins_commits", function()
+    local temp_dir
+    local config_path
+
+    before_each(function()
+      temp_dir = vim.fn.tempname()
+      vim.fn.mkdir(temp_dir, "p")
+      config_path = temp_dir .. "/.necromancer.json"
+    end)
+
+    after_each(function()
+      vim.fn.delete(temp_dir, "rf")
+    end)
+
+    it("updates single plugin commit", function()
+      local initial = {
+        plugins = {
+          {
+            name = "plugin-a",
+            repo = "https://github.com/owner/plugin-a",
+            commit = "a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2",
+          },
+        },
+      }
+      vim.fn.writefile({ vim.json.encode(initial) }, config_path)
+
+      local updates = {
+        { name = "plugin-a", commit = "b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3" },
+      }
+      config.update_plugins_commits(config_path, updates)
+
+      local result = config.parse_config_file(config_path)
+      assert.equals("b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3", result.plugins[1].commit)
+    end)
+
+    it("updates multiple plugin commits", function()
+      local initial = {
+        plugins = {
+          {
+            name = "plugin-a",
+            repo = "https://github.com/owner/plugin-a",
+            commit = "a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2",
+          },
+          {
+            name = "plugin-b",
+            repo = "https://github.com/owner/plugin-b",
+            commit = "c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4",
+          },
+        },
+      }
+      vim.fn.writefile({ vim.json.encode(initial) }, config_path)
+
+      local updates = {
+        { name = "plugin-a", commit = "1111111111111111111111111111111111111111" },
+        { name = "plugin-b", commit = "2222222222222222222222222222222222222222" },
+      }
+      config.update_plugins_commits(config_path, updates)
+
+      local result = config.parse_config_file(config_path)
+      assert.equals("1111111111111111111111111111111111111111", result.plugins[1].commit)
+      assert.equals("2222222222222222222222222222222222222222", result.plugins[2].commit)
+    end)
+
+    it("preserves other plugin fields", function()
+      local initial = {
+        plugins = {
+          {
+            name = "dep1",
+            repo = "https://github.com/owner/dep1",
+            commit = "d1d1d1d1d1d1d1d1d1d1d1d1d1d1d1d1d1d1d1d1",
+          },
+          {
+            name = "plugin-a",
+            repo = "https://github.com/owner/plugin-a",
+            commit = "a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2",
+            branch = "main",
+            dependencies = { "dep1" },
+          },
+        },
+      }
+      vim.fn.writefile({ vim.json.encode(initial) }, config_path)
+
+      local updates = {
+        { name = "plugin-a", commit = "b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3" },
+      }
+      config.update_plugins_commits(config_path, updates)
+
+      local result = config.parse_config_file(config_path)
+      -- Find plugin-a in the result (order may change due to JSON encoding)
+      local plugin_a
+      for _, p in ipairs(result.plugins) do
+        if p.name == "plugin-a" then
+          plugin_a = p
+          break
+        end
+      end
+      assert.is_not_nil(plugin_a)
+      assert.equals("main", plugin_a.branch)
+      assert.same({ "dep1" }, plugin_a.dependencies)
+    end)
+
+    it("skips plugins not in updates", function()
+      local initial = {
+        plugins = {
+          {
+            name = "plugin-a",
+            repo = "https://github.com/owner/plugin-a",
+            commit = "a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2",
+          },
+          {
+            name = "plugin-b",
+            repo = "https://github.com/owner/plugin-b",
+            commit = "c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4",
+          },
+        },
+      }
+      vim.fn.writefile({ vim.json.encode(initial) }, config_path)
+
+      local updates = {
+        { name = "plugin-a", commit = "1111111111111111111111111111111111111111" },
+      }
+      config.update_plugins_commits(config_path, updates)
+
+      local result = config.parse_config_file(config_path)
+      assert.equals("1111111111111111111111111111111111111111", result.plugins[1].commit)
+      assert.equals("c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4", result.plugins[2].commit)
+    end)
   end)
 end)
