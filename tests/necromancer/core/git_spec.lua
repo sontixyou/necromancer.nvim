@@ -86,4 +86,23 @@ describe("git", function()
       end)
     end)
   end)
+
+  describe("get_default_branch", function()
+    it("returns default branch name for repo with remote", function()
+      -- Clone to get a repo with remote
+      local clone_path = test_dir .. "/cloned-for-default"
+      git.clone(test_repo, clone_path)
+
+      local branch = git.get_default_branch(clone_path)
+      -- Should return main or master (depending on git config)
+      assert.is_true(branch == "main" or branch == "master")
+    end)
+
+    it("falls back to existing branch for repo without remote", function()
+      -- test_repo has no remote configured
+      -- Should detect the existing branch (main or master depending on git config)
+      local branch = git.get_default_branch(test_repo)
+      assert.is_true(branch == "main" or branch == "master")
+    end)
+  end)
 end)

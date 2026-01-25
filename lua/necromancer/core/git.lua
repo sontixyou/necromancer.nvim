@@ -90,4 +90,39 @@ function M.get_current_commit(repo_path)
   return result
 end
 
+---Get default branch name from remote
+---@param repo_path string Path to repository
+---@return string branch Default branch name
+function M.get_default_branch(repo_path)
+  -- Try to get from remote
+  local ok, result = pcall(function()
+    return git_exec({ "remote", "show", "origin" }, repo_path)
+  end)
+
+  if ok and result then
+    local branch = result:match("HEAD branch: ([^\n]+)")
+    if branch and #branch > 0 then
+      return vim.trim(branch)
+    end
+  end
+
+  -- Fallback: check if main or master exists
+  local main_ok = pcall(function()
+    git_exec({ "rev-parse", "--verify", "main" }, repo_path)
+  end)
+  if main_ok then
+    return "main"
+  end
+
+  local master_ok = pcall(function()
+    git_exec({ "rev-parse", "--verify", "master" }, repo_path)
+  end)
+  if master_ok then
+    return "master"
+  end
+
+  -- Default to main
+  return "main"
+end
+
 return M
