@@ -38,7 +38,12 @@ if not vim.loop.fs_stat(necromancer_path) then
   })
 end
 vim.opt.rtp:prepend(necromancer_path)
-require("necromancer").setup()
+require("necromancer").setup({
+  -- Optional: specify a custom config file path
+  -- config_path = "~/.config/nvim/.necromancer.json",
+  -- Optional: specify a custom plugin installation directory
+  -- install_dir = "~/.local/share/nvim/necromancer/plugins",
+})
 ```
 
 This will:
@@ -131,14 +136,86 @@ Create a new `.necromancer.json` configuration file in the current directory.
 :Necromancer init
 ```
 
-### Planned Commands (Future Releases)
+### `:Necromancer status`
 
-The following commands are planned for future releases:
+Show status of all configured plugins with update information.
 
-- `:Necromancer update [plugin]` - Update plugins to versions specified in config
-- `:Necromancer status` - Show status of all configured plugins
-- `:Necromancer clean` - Remove plugins no longer in configuration
-- `:Necromancer verify` - Verify plugin installations are intact and repair if needed
+```vim
+:Necromancer status
+```
+
+This command fetches the latest commits from remote repositories and displays:
+- Current installation state (up-to-date, outdated, update available, not installed, corrupted)
+- Current commit vs. configured commit
+- Available remote updates
+
+### `:Necromancer update [plugin]`
+
+Update plugins to the latest commit from their default branch (7 days ago for stability).
+
+```vim
+" Update all plugins
+:Necromancer update
+
+" Update a specific plugin
+:Necromancer update telescope.nvim
+```
+
+This updates both the plugin files and the `.necromancer.json` configuration.
+
+### `:Necromancer clean`
+
+Remove orphan plugins that are no longer in the configuration file.
+
+```vim
+:Necromancer clean
+```
+
+### `:Necromancer self-update`
+
+Update necromancer.nvim itself to the latest version.
+
+```vim
+:Necromancer self-update
+```
+
+## Setup Options
+
+The `setup()` function accepts the following options:
+
+```lua
+require("necromancer").setup({
+  -- Custom path to config file (optional)
+  -- If not specified, searches for .necromancer.json in current directory,
+  -- then falls back to ~/.config/necromancer/config.json
+  config_path = "~/.config/nvim/.necromancer.json",
+
+  -- Custom plugin installation directory (optional)
+  -- Default: ~/.local/share/nvim/necromancer/plugins (Unix/macOS)
+  --          %LOCALAPPDATA%\nvim\necromancer\plugins (Windows)
+  install_dir = "~/my-plugins",
+
+  -- Auto-fetch necromancer.nvim updates on startup (optional)
+  -- Can be boolean or table with options
+  autofetch = {
+    enabled = true,        -- Enable/disable autofetch (default: true)
+    notify_updates = true, -- Show notification when updates are available (default: true)
+    quiet = false,         -- Suppress debug messages (default: false)
+  },
+})
+```
+
+### Global Configuration
+
+You can use a global configuration by specifying `config_path` in your `init.lua`:
+
+```lua
+require("necromancer").setup({
+  config_path = "~/.config/nvim/.necromancer.json",
+})
+```
+
+This allows you to use the same plugin configuration from any directory.
 
 ## Configuration File Format
 
@@ -280,26 +357,35 @@ If you were using the TypeScript version (v1.x):
 necromancer.nvim/
 ├── lua/
 │   └── necromancer/
-│       ├── init.lua          # Main entry point
-│       ├── config.lua        # Configuration handling
-│       ├── installer.lua     # Plugin installation
-│       ├── git.lua           # Git operations
-│       ├── validator.lua     # Input validation
-│       ├── lockfile.lua      # Lock file management
-│       └── commands.lua      # Vim command definitions
-├── plugin/
-│   └── necromancer.lua       # Plugin loader
+│       ├── init.lua              # Main entry point, setup()
+│       ├── commands.lua          # :Necromancer command definitions
+│       ├── core/
+│       │   ├── autofetch.lua     # Async update checking on startup
+│       │   ├── config.lua        # Configuration file parsing
+│       │   ├── dependencies.lua  # Dependency resolution (topological sort)
+│       │   ├── git.lua           # Git operations (clone, fetch, checkout)
+│       │   ├── installer.lua     # Plugin installation logic
+│       │   ├── lockfile.lua      # Lock file management
+│       │   └── validator.lua     # Input validation
+│       └── utils/
+│           ├── errors.lua        # Custom error types
+│           └── paths.lua         # Path utilities
+├── tests/
+│   └── necromancer/              # Test files (*_spec.lua)
 └── README.md
 ```
 
 ### Running tests
 
 ```bash
-# Run all tests with busted
-busted tests/
+# Run all tests
+make test-lua
 
 # Run specific test file
-busted tests/unit/validator_spec.lua
+make test-file FILE=tests/necromancer/core/validator_spec.lua
+
+# Install test dependencies (plenary.nvim)
+make test-deps
 ```
 
 ## License
