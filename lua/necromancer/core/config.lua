@@ -111,4 +111,38 @@ function M.validate_config(config)
   dependencies.resolve_dependencies(config.plugins)
 end
 
+---Update plugin commits in config file
+---@param config_path string Path to config file
+---@param updates table[] List of {name, commit} pairs
+function M.update_plugins_commits(config_path, updates)
+  -- Read and parse current config
+  local lines = vim.fn.readfile(config_path)
+  if vim.tbl_isempty(lines) then
+    error(errors.ConfigError("Failed to read configuration file at " .. config_path))
+  end
+
+  local content = table.concat(lines, "\n")
+  local ok, cfg = pcall(vim.json.decode, content)
+  if not ok then
+    error(errors.ConfigError("Invalid JSON in configuration file: " .. tostring(cfg)))
+  end
+
+  -- Build lookup table for updates
+  local update_map = {}
+  for _, update in ipairs(updates) do
+    update_map[update.name] = update.commit
+  end
+
+  -- Apply updates
+  for _, plugin in ipairs(cfg.plugins) do
+    if update_map[plugin.name] then
+      plugin.commit = update_map[plugin.name]
+    end
+  end
+
+  -- Write back
+  local json = vim.json.encode(cfg)
+  vim.fn.writefile({ json }, config_path)
+end
+
 return M
