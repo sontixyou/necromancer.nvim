@@ -212,4 +212,17 @@ function M.get_remote_head(repo_path)
   return nil
 end
 
+---Pull updates from remote (fast-forward only)
+---@param repo_path string Path to repository
+function M.pull(repo_path)
+  local ok, err = pcall(function()
+    git_exec({ "pull", "--ff-only" }, repo_path)
+  end)
+
+  if not ok then
+    local msg = type(err) == "table" and err.message or tostring(err)
+    error(errors.GitError("Failed to pull: " .. msg))
+  end
+end
+
 return M
