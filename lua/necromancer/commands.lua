@@ -306,6 +306,13 @@ function M.cmd_update(args)
       goto continue
     end
 
+    -- Validate commit hash is a valid 40-character hex string
+    if #new_commit ~= 40 or not new_commit:match("^[a-f0-9]+$") then
+      vim.notify(string.format("Invalid commit hash for %s: %s", plugin.name, new_commit), vim.log.levels.ERROR)
+      failed_count = failed_count + 1
+      goto continue
+    end
+
     -- Checkout new commit
     local checkout_ok, checkout_err = pcall(function()
       git.checkout(plugin_path, new_commit)
@@ -338,25 +345,26 @@ function M.cmd_update(args)
     end)
     if not update_ok then
       vim.notify("Failed to update config file: " .. tostring(update_err), vim.log.levels.ERROR)
-    end
-
-    -- Update lockfile
-    local lock_path = paths.get_lock_file_path(config_path)
-    local lock = lockfile.read(lock_path)
-    for _, update in ipairs(updates) do
-      local plugin_def = find_plugin_by_name(cfg.plugins, update.name)
-      if plugin_def then
-        local lock_entry = {
-          name = update.name,
-          repo = plugin_def.repo,
-          commit = update.commit,
-          path = paths.compress_tilde(paths.resolve_plugin_path(update.name, install_dir)),
-          installedAt = os.date("!%Y-%m-%dT%H:%M:%SZ"),
-        }
-        lockfile.upsert_plugin(lock, lock_entry)
+      -- Skip lockfile update to maintain consistency
+    else
+      -- Update lockfile only if config update succeeded
+      local lock_path = paths.get_lock_file_path(config_path)
+      local lock = lockfile.read(lock_path)
+      for _, update in ipairs(updates) do
+        local plugin_def = find_plugin_by_name(cfg.plugins, update.name)
+        if plugin_def then
+          local lock_entry = {
+            name = update.name,
+            repo = plugin_def.repo,
+            commit = update.commit,
+            path = paths.compress_tilde(paths.resolve_plugin_path(update.name, install_dir)),
+            installedAt = os.date("!%Y-%m-%dT%H:%M:%SZ"),
+          }
+          lockfile.upsert_plugin(lock, lock_entry)
+        end
       end
+      lockfile.write(lock_path, lock)
     end
-    lockfile.write(lock_path, lock)
   end
 
   -- Summary
