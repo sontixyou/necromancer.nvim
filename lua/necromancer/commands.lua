@@ -1,4 +1,5 @@
 local config = require("necromancer.core.config")
+local git = require("necromancer.core.git")
 local installer = require("necromancer.core.installer")
 local lockfile = require("necromancer.core.lockfile")
 local paths = require("necromancer.utils.paths")
@@ -16,6 +17,63 @@ local function find_plugin_by_name(plugins, name)
     end
   end
   return nil
+end
+
+---Get status of a single plugin
+---@param plugin_def table Plugin definition from config
+---@param install_dir string Installation directory
+---@param lock table Lock file data (unused for now)
+---@return table status {name, state, current_commit, config_commit, remote_commit, error_msg}
+function M.get_plugin_status(plugin_def, install_dir, lock)
+  local plugin_path = paths.resolve_plugin_path(plugin_def.name, install_dir)
+  local result = {
+    name = plugin_def.name,
+    state = "unknown",
+    config_commit = plugin_def.commit,
+    current_commit = nil,
+    remote_commit = nil,
+    error_msg = nil,
+  }
+
+  -- Check if directory exists
+  if vim.fn.isdirectory(plugin_path) ~= 1 then
+    result.state = "not_installed"
+    return result
+  end
+
+  -- Check if it's a git repo
+  if vim.fn.isdirectory(plugin_path .. "/.git") ~= 1 then
+    result.state = "corrupted"
+    return result
+  end
+
+  -- Get current commit
+  local ok, current_commit = pcall(git.get_current_commit, plugin_path)
+  if not ok then
+    result.state = "corrupted"
+    result.error_msg = tostring(current_commit)
+    return result
+  end
+  result.current_commit = current_commit
+
+  -- Fetch and get remote HEAD
+  local fetch_ok = pcall(git.fetch, plugin_path)
+  if fetch_ok then
+    result.remote_commit = git.get_remote_head(plugin_path)
+  else
+    result.error_msg = "fetch_failed"
+  end
+
+  -- Determine state
+  if current_commit ~= plugin_def.commit then
+    result.state = "outdated"
+  elseif result.remote_commit and result.remote_commit ~= plugin_def.commit then
+    result.state = "update_available"
+  else
+    result.state = "up_to_date"
+  end
+
+  return result
 end
 
 ---Install all plugins or a specific plugin
@@ -177,6 +235,133 @@ function M.cmd_list()
   end, { buffer = buf, nowait = true })
 end
 
+---Status icons and labels
+local STATUS_INFO = {
+  up_to_date = { icon = "✓", label = "up-to-date" },
+  update_available = { icon = "⬆", label = "update available" },
+  outdated = { icon = "!", label = "outdated" },
+  not_installed = { icon = "✗", label = "not installed" },
+  corrupted = { icon = "⚠", label = "corrupted" },
+  fetch_failed = { icon = "?", label = "fetch failed" },
+}
+
+---Show status of all configured plugins
+function M.cmd_status()
+  -- Find config file
+  local config_path = paths.resolve_config_path()
+  if not config_path then
+    vim.notify("Config file not found. Run :Necromancer init to create one.", vim.log.levels.ERROR)
+    return
+  end
+
+  -- Parse config
+  local ok, cfg = pcall(config.parse_config_file, config_path)
+  if not ok then
+    vim.notify("Failed to parse config: " .. tostring(cfg), vim.log.levels.ERROR)
+    return
+  end
+
+  -- Get install directory and lock file
+  local install_dir = paths.get_default_install_dir()
+  local lock_path = paths.get_lock_file_path(config_path)
+  local lock = lockfile.read(lock_path)
+
+  -- Get status for each plugin
+  local statuses = {}
+  local total = #cfg.plugins
+  for i, plugin_def in ipairs(cfg.plugins) do
+    vim.notify(string.format("Fetching updates... (%d/%d) %s", i, total, plugin_def.name), vim.log.levels.INFO)
+    local status = M.get_plugin_status(plugin_def, install_dir, lock)
+    table.insert(statuses, status)
+  end
+
+  -- Build output lines
+  local timestamp = os.date("%H:%M:%S")
+  local lines = { string.format("Plugin Status (fetched at %s):", timestamp), "" }
+
+  -- Track summary counts
+  local counts = {}
+  for _, status in ipairs(statuses) do
+    counts[status.state] = (counts[status.state] or 0) + 1
+  end
+
+  -- Find max plugin name length for alignment
+  local max_name_len = 0
+  for _, status in ipairs(statuses) do
+    max_name_len = math.max(max_name_len, #status.name)
+  end
+
+  -- Format each plugin line
+  for _, status in ipairs(statuses) do
+    local info = STATUS_INFO[status.state] or { icon = "?", label = status.state }
+    local name_padded = status.name .. string.rep(" ", max_name_len - #status.name)
+    local line
+
+    if status.state == "not_installed" then
+      line = string.format("  %s %s  %s", info.icon, name_padded, info.label)
+    elseif status.state == "corrupted" then
+      line = string.format("  %s %s  %s", info.icon, name_padded, info.label)
+    elseif status.state == "outdated" then
+      local short_current = status.current_commit and status.current_commit:sub(1, 8) or "????????"
+      local short_config = status.config_commit:sub(1, 8)
+      line = string.format("  %s %s  %-16s @ %s ≠ %s", info.icon, name_padded, info.label, short_current, short_config)
+    elseif status.state == "update_available" then
+      local short_current = status.current_commit:sub(1, 8)
+      local short_remote = status.remote_commit and status.remote_commit:sub(1, 8) or "????????"
+      line = string.format("  %s %s  %-16s @ %s → %s", info.icon, name_padded, info.label, short_current, short_remote)
+    else
+      local short_commit = status.current_commit and status.current_commit:sub(1, 8) or "????????"
+      line = string.format("  %s %s  %-16s @ %s", info.icon, name_padded, info.label, short_commit)
+    end
+
+    table.insert(lines, line)
+  end
+
+  -- Add summary
+  table.insert(lines, "")
+  local summary_parts = {}
+  for _, state in ipairs({ "up_to_date", "update_available", "outdated", "not_installed", "corrupted" }) do
+    if counts[state] and counts[state] > 0 then
+      local info = STATUS_INFO[state]
+      table.insert(summary_parts, string.format("%d %s", counts[state], info.label))
+    end
+  end
+  table.insert(lines, "Summary: " .. table.concat(summary_parts, ", "))
+
+  -- Show in floating window
+  local buf = vim.api.nvim_create_buf(false, true)
+  vim.api.nvim_buf_set_lines(buf, 0, -1, false, lines)
+  vim.api.nvim_set_option_value("modifiable", false, { buf = buf })
+  vim.api.nvim_set_option_value("buftype", "nofile", { buf = buf })
+  vim.api.nvim_set_option_value("filetype", "necromancer", { buf = buf })
+
+  -- Calculate window size
+  local width = 70
+  local height = math.min(#lines + 2, 20)
+  local row = math.floor((vim.o.lines - height) / 2)
+  local col = math.floor((vim.o.columns - width) / 2)
+
+  local win = vim.api.nvim_open_win(buf, true, {
+    relative = "editor",
+    width = width,
+    height = height,
+    row = row,
+    col = col,
+    style = "minimal",
+    border = "rounded",
+    title = " Necromancer Status ",
+    title_pos = "center",
+  })
+
+  -- Close on q or <Esc>
+  vim.keymap.set("n", "q", function()
+    vim.api.nvim_win_close(win, true)
+  end, { buffer = buf, nowait = true })
+  vim.keymap.set("n", "<Esc>", function()
+    vim.api.nvim_win_close(win, true)
+  end, { buffer = buf, nowait = true })
+end
+
 ---Generate a new .necromancer.json config file
 function M.cmd_init()
   local config_path = ".necromancer.json"
@@ -207,7 +392,7 @@ end
 ---Get list of available subcommands
 ---@return string[]
 local function get_subcommands()
-  return { "install", "list", "init" }
+  return { "install", "list", "status", "init" }
 end
 
 ---Get completions for :Necromancer command
@@ -258,7 +443,7 @@ local function dispatch(opts)
   local subcommand = args[1]
 
   if not subcommand then
-    vim.notify("Usage: :Necromancer <install|list|init> [args]", vim.log.levels.ERROR)
+    vim.notify("Usage: :Necromancer <install|list|status|init> [args]", vim.log.levels.ERROR)
     return
   end
 
@@ -272,11 +457,13 @@ local function dispatch(opts)
     M.cmd_install(subargs)
   elseif subcommand == "list" then
     M.cmd_list()
+  elseif subcommand == "status" then
+    M.cmd_status()
   elseif subcommand == "init" then
     M.cmd_init()
   else
     vim.notify("Unknown subcommand: " .. subcommand, vim.log.levels.ERROR)
-    vim.notify("Available commands: install, list, init", vim.log.levels.INFO)
+    vim.notify("Available commands: install, list, status, init", vim.log.levels.INFO)
   end
 end
 
