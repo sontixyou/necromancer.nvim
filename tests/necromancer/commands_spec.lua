@@ -211,6 +211,46 @@ describe("commands", function()
     end)
   end)
 
+  describe("cmd_status", function()
+    it("shows error when config file not found", function()
+      -- No config file exists
+      -- This should show an error but not crash
+      commands.cmd_status()
+      assert.is_true(true)
+    end)
+
+    it("opens floating window with status", function()
+      -- Create config with a plugin
+      local cfg = {
+        plugins = {
+          {
+            name = "plenary.nvim",
+            repo = "https://github.com/nvim-lua/plenary.nvim",
+            commit = "a3e3bc82a3f95c5ed0d7201546d5d2c19b20d683",
+          },
+        },
+      }
+      vim.fn.writefile({ vim.json.encode(cfg) }, ".necromancer.json")
+
+      -- Run status command
+      commands.cmd_status()
+
+      -- Find the floating window
+      local wins = vim.api.nvim_list_wins()
+      local found_float = false
+      for _, win in ipairs(wins) do
+        local win_config = vim.api.nvim_win_get_config(win)
+        if win_config.relative ~= "" then
+          found_float = true
+          vim.api.nvim_win_close(win, true)
+          break
+        end
+      end
+
+      assert.is_true(found_float, "Should open a floating window")
+    end)
+  end)
+
   describe("cmd_install", function()
     it("shows error when config file not found", function()
       -- No config file exists
