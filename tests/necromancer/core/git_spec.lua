@@ -105,4 +105,26 @@ describe("git", function()
       assert.is_true(branch == "main" or branch == "master")
     end)
   end)
+
+  describe("get_commit_before_date", function()
+    it("returns commit from before specified days", function()
+      -- Clone to get a repo with remote tracking
+      local clone_path = test_dir .. "/cloned-for-date"
+      git.clone(test_repo, clone_path)
+
+      -- For a fresh repo, any days_ago should return the only commit
+      local commit = git.get_commit_before_date(clone_path, "origin/master", 7)
+      assert.equals(40, #commit)
+      assert.is_true(commit:match("^[a-f0-9]+$") ~= nil)
+    end)
+
+    it("returns oldest commit if no commit before date", function()
+      local clone_path = test_dir .. "/cloned-for-oldest"
+      git.clone(test_repo, clone_path)
+
+      -- Request commit from 1000 days ago (before repo existed)
+      local commit = git.get_commit_before_date(clone_path, "origin/master", 1000)
+      assert.equals(40, #commit)
+    end)
+  end)
 end)

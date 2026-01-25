@@ -125,4 +125,56 @@ function M.get_default_branch(repo_path)
   return "main"
 end
 
+---Get commit hash from before specified number of days ago
+---@param repo_path string Path to repository
+---@param branch string Branch name (e.g., "origin/main")
+---@param days_ago number Number of days ago
+---@return string commit 40-character hash
+function M.get_commit_before_date(repo_path, branch, days_ago)
+  local date_spec = string.format("%d days ago", days_ago)
+
+  -- Try to get commit before the specified date
+  local ok, result = pcall(function()
+    return git_exec({
+      "log",
+      branch,
+      "--before=" .. date_spec,
+      "-1",
+      "--format=%H",
+    }, repo_path)
+  end)
+
+  if ok and result and #result == 40 then
+    return result
+  end
+
+  -- Fallback: get the oldest commit on the branch
+  local oldest_ok, oldest = pcall(function()
+    return git_exec({
+      "rev-list",
+      "--max-parents=0",
+      branch,
+    }, repo_path)
+  end)
+
+  if oldest_ok and oldest then
+    -- rev-list may return multiple lines, take the first
+    local first_line = oldest:match("^([^\n]+)")
+    if first_line and #first_line == 40 then
+      return first_line
+    end
+  end
+
+  -- Last resort: just get HEAD of the branch
+  local head_ok, head = pcall(function()
+    return git_exec({ "rev-parse", branch }, repo_path)
+  end)
+
+  if head_ok and head and #head == 40 then
+    return head
+  end
+
+  error(errors.GitError("Failed to get commit for branch: " .. branch))
+end
+
 return M
