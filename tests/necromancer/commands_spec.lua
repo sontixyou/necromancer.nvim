@@ -162,4 +162,64 @@ describe("commands", function()
       assert.equals("plenary.nvim", parsed.plugins[1].name)
     end)
   end)
+
+  describe("cmd_update", function()
+    it("shows error when config file not found", function()
+      -- Change to a directory without config
+      local temp_dir = vim.fn.tempname()
+      vim.fn.mkdir(temp_dir, "p")
+      local original_cwd = vim.fn.getcwd()
+      vim.fn.chdir(temp_dir)
+
+      local notifications = {}
+      local original_notify = vim.notify
+      vim.notify = function(msg, level)
+        table.insert(notifications, { msg = msg, level = level })
+      end
+
+      commands.cmd_update({})
+
+      vim.notify = original_notify
+      vim.fn.chdir(original_cwd)
+      vim.fn.delete(temp_dir, "rf")
+
+      assert.is_true(#notifications > 0)
+      assert.is_true(notifications[1].msg:match("Config file not found") ~= nil)
+    end)
+
+    it("shows error for non-existent plugin name", function()
+      -- Create temp dir with config
+      local temp_dir = vim.fn.tempname()
+      vim.fn.mkdir(temp_dir, "p")
+      local config_path = temp_dir .. "/.necromancer.json"
+      local config_content = vim.json.encode({
+        plugins = {
+          {
+            name = "existing-plugin",
+            repo = "https://github.com/owner/existing-plugin",
+            commit = "a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2",
+          },
+        },
+      })
+      vim.fn.writefile({ config_content }, config_path)
+
+      local original_cwd = vim.fn.getcwd()
+      vim.fn.chdir(temp_dir)
+
+      local notifications = {}
+      local original_notify = vim.notify
+      vim.notify = function(msg, level)
+        table.insert(notifications, { msg = msg, level = level })
+      end
+
+      commands.cmd_update({ "nonexistent-plugin" })
+
+      vim.notify = original_notify
+      vim.fn.chdir(original_cwd)
+      vim.fn.delete(temp_dir, "rf")
+
+      assert.is_true(#notifications > 0)
+      assert.is_true(notifications[1].msg:match("Plugin not found") ~= nil)
+    end)
+  end)
 end)
