@@ -1,4 +1,5 @@
 local config = require("necromancer.core.config")
+local git = require("necromancer.core.git")
 local installer = require("necromancer.core.installer")
 local lockfile = require("necromancer.core.lockfile")
 local paths = require("necromancer.utils.paths")
@@ -16,6 +17,63 @@ local function find_plugin_by_name(plugins, name)
     end
   end
   return nil
+end
+
+---Get status of a single plugin
+---@param plugin_def table Plugin definition from config
+---@param install_dir string Installation directory
+---@param lock table Lock file data (unused for now)
+---@return table status {name, state, current_commit, config_commit, remote_commit, error_msg}
+function M.get_plugin_status(plugin_def, install_dir, lock)
+  local plugin_path = paths.resolve_plugin_path(plugin_def.name, install_dir)
+  local result = {
+    name = plugin_def.name,
+    state = "unknown",
+    config_commit = plugin_def.commit,
+    current_commit = nil,
+    remote_commit = nil,
+    error_msg = nil,
+  }
+
+  -- Check if directory exists
+  if vim.fn.isdirectory(plugin_path) ~= 1 then
+    result.state = "not_installed"
+    return result
+  end
+
+  -- Check if it's a git repo
+  if vim.fn.isdirectory(plugin_path .. "/.git") ~= 1 then
+    result.state = "corrupted"
+    return result
+  end
+
+  -- Get current commit
+  local ok, current_commit = pcall(git.get_current_commit, plugin_path)
+  if not ok then
+    result.state = "corrupted"
+    result.error_msg = tostring(current_commit)
+    return result
+  end
+  result.current_commit = current_commit
+
+  -- Fetch and get remote HEAD
+  local fetch_ok = pcall(git.fetch, plugin_path)
+  if fetch_ok then
+    result.remote_commit = git.get_remote_head(plugin_path)
+  else
+    result.error_msg = "fetch_failed"
+  end
+
+  -- Determine state
+  if current_commit ~= plugin_def.commit then
+    result.state = "outdated"
+  elseif result.remote_commit and result.remote_commit ~= plugin_def.commit then
+    result.state = "update_available"
+  else
+    result.state = "up_to_date"
+  end
+
+  return result
 end
 
 ---Install all plugins or a specific plugin
