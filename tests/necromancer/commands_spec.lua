@@ -360,6 +360,265 @@ describe("commands", function()
     end)
   end)
 
+  describe("cmd_clean", function()
+    it("shows error when config file not found", function()
+      local notifications = {}
+      local original_notify = vim.notify
+      vim.notify = function(msg, level)
+        table.insert(notifications, { msg = msg, level = level })
+      end
+
+      commands.cmd_clean()
+
+      vim.notify = original_notify
+
+      assert.is_true(#notifications > 0)
+      assert.is_true(notifications[1].msg:match("Config file not found") ~= nil)
+    end)
+
+    it("shows message when install directory does not exist", function()
+      -- Create config with at least one plugin (empty plugins array is invalid)
+      local cfg = {
+        plugins = {
+          {
+            name = "test-plugin",
+            repo = "https://github.com/test/test-plugin",
+            commit = "1234567890abcdef1234567890abcdef12345678",
+          },
+        },
+      }
+      vim.fn.writefile({ vim.json.encode(cfg) }, ".necromancer.json")
+
+      -- Ensure install directory does not exist
+      local install_dir = paths.get_default_install_dir()
+      vim.fn.delete(install_dir, "rf")
+
+      local notifications = {}
+      local original_notify = vim.notify
+      vim.notify = function(msg, level)
+        table.insert(notifications, { msg = msg, level = level })
+      end
+
+      commands.cmd_clean()
+
+      vim.notify = original_notify
+
+      assert.is_true(#notifications > 0, "Should have at least one notification")
+      local found_message = false
+      for _, notification in ipairs(notifications) do
+        if notification.msg:match("No plugins installed") then
+          found_message = true
+          break
+        end
+      end
+      assert.is_true(found_message, "Should show 'No plugins installed' message")
+    end)
+
+    it("shows message when no orphan plugins found", function()
+      -- Create config with a plugin
+      local cfg = {
+        plugins = {
+          {
+            name = "test-plugin",
+            repo = "https://github.com/test/test-plugin",
+            commit = "1234567890abcdef1234567890abcdef12345678",
+          },
+        },
+      }
+      vim.fn.writefile({ vim.json.encode(cfg) }, ".necromancer.json")
+
+      -- Create install directory with matching plugin only
+      local install_dir = paths.get_default_install_dir()
+      -- Clean up any existing plugins first
+      vim.fn.delete(install_dir, "rf")
+      vim.fn.mkdir(install_dir .. "/test-plugin", "p")
+
+      local notifications = {}
+      local original_notify = vim.notify
+      vim.notify = function(msg, level)
+        table.insert(notifications, { msg = msg, level = level })
+      end
+
+      commands.cmd_clean()
+
+      vim.notify = original_notify
+
+      -- Clean up
+      vim.fn.delete(install_dir, "rf")
+
+      assert.is_true(#notifications > 0)
+      local found_no_orphan = false
+      for _, notification in ipairs(notifications) do
+        if notification.msg:match("No orphan plugins found") then
+          found_no_orphan = true
+          break
+        end
+      end
+      assert.is_true(found_no_orphan, "Should show 'No orphan plugins found' message")
+    end)
+
+    it("removes orphan plugin directories", function()
+      -- Create config with only one plugin
+      local cfg = {
+        plugins = {
+          {
+            name = "configured-plugin",
+            repo = "https://github.com/test/configured-plugin",
+            commit = "1234567890abcdef1234567890abcdef12345678",
+          },
+        },
+      }
+      vim.fn.writefile({ vim.json.encode(cfg) }, ".necromancer.json")
+
+      -- Create install directory with both configured and orphan plugin
+      local install_dir = paths.get_default_install_dir()
+      vim.fn.mkdir(install_dir .. "/configured-plugin", "p")
+      vim.fn.mkdir(install_dir .. "/orphan-plugin", "p")
+
+      local notifications = {}
+      local original_notify = vim.notify
+      vim.notify = function(msg, level)
+        table.insert(notifications, { msg = msg, level = level })
+      end
+
+      commands.cmd_clean()
+
+      vim.notify = original_notify
+
+      -- Verify orphan was removed
+      assert.equals(0, vim.fn.isdirectory(install_dir .. "/orphan-plugin"))
+      -- Verify configured plugin still exists
+      assert.equals(1, vim.fn.isdirectory(install_dir .. "/configured-plugin"))
+
+      -- Clean up
+      vim.fn.delete(install_dir .. "/configured-plugin", "rf")
+
+      -- Verify notifications
+      local found_removed = false
+      local found_complete = false
+      for _, notification in ipairs(notifications) do
+        if notification.msg:match("Removed orphan plugin: orphan%-plugin") then
+          found_removed = true
+        end
+        if notification.msg:match("Clean complete: 1 orphan plugin") then
+          found_complete = true
+        end
+      end
+      assert.is_true(found_removed, "Should notify about removed plugin")
+      assert.is_true(found_complete, "Should show completion message")
+    end)
+
+    it("updates lockfile when removing orphan plugins", function()
+      -- Create config with only one plugin
+      local cfg = {
+        plugins = {
+          {
+            name = "configured-plugin",
+            repo = "https://github.com/test/configured-plugin",
+            commit = "1234567890abcdef1234567890abcdef12345678",
+          },
+        },
+      }
+      vim.fn.writefile({ vim.json.encode(cfg) }, ".necromancer.json")
+
+      -- Create lockfile with orphan plugin entry
+      local lock = lockfile.create_empty()
+      lockfile.upsert_plugin(lock, {
+        name = "orphan-plugin",
+        repo = "https://github.com/test/orphan-plugin",
+        commit = "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        path = "~/.local/share/nvim/necromancer/plugins/orphan-plugin",
+        installedAt = os.date("!%Y-%m-%dT%H:%M:%SZ"),
+      })
+      lockfile.upsert_plugin(lock, {
+        name = "configured-plugin",
+        repo = "https://github.com/test/configured-plugin",
+        commit = "1234567890abcdef1234567890abcdef12345678",
+        path = "~/.local/share/nvim/necromancer/plugins/configured-plugin",
+        installedAt = os.date("!%Y-%m-%dT%H:%M:%SZ"),
+      })
+      lockfile.write(".necromancer.lock", lock)
+
+      -- Create install directory with orphan plugin
+      local install_dir = paths.get_default_install_dir()
+      vim.fn.mkdir(install_dir .. "/configured-plugin", "p")
+      vim.fn.mkdir(install_dir .. "/orphan-plugin", "p")
+
+      -- Suppress notifications
+      local original_notify = vim.notify
+      vim.notify = function() end
+
+      commands.cmd_clean()
+
+      vim.notify = original_notify
+
+      -- Read updated lockfile
+      local updated_lock = lockfile.read(".necromancer.lock")
+
+      -- Verify orphan was removed from lockfile
+      local orphan_entry = lockfile.find_plugin(updated_lock, "orphan-plugin")
+      assert.is_nil(orphan_entry, "Orphan plugin should be removed from lockfile")
+
+      -- Verify configured plugin still in lockfile
+      local configured_entry = lockfile.find_plugin(updated_lock, "configured-plugin")
+      assert.is_not_nil(configured_entry, "Configured plugin should remain in lockfile")
+
+      -- Clean up
+      vim.fn.delete(install_dir .. "/configured-plugin", "rf")
+    end)
+
+    it("handles multiple orphan plugins", function()
+      -- Create config with one plugin
+      local cfg = {
+        plugins = {
+          {
+            name = "configured-plugin",
+            repo = "https://github.com/test/configured-plugin",
+            commit = "1234567890abcdef1234567890abcdef12345678",
+          },
+        },
+      }
+      vim.fn.writefile({ vim.json.encode(cfg) }, ".necromancer.json")
+
+      -- Create install directory with multiple orphan plugins
+      local install_dir = paths.get_default_install_dir()
+      vim.fn.mkdir(install_dir .. "/configured-plugin", "p")
+      vim.fn.mkdir(install_dir .. "/orphan-1", "p")
+      vim.fn.mkdir(install_dir .. "/orphan-2", "p")
+      vim.fn.mkdir(install_dir .. "/orphan-3", "p")
+
+      local notifications = {}
+      local original_notify = vim.notify
+      vim.notify = function(msg, level)
+        table.insert(notifications, { msg = msg, level = level })
+      end
+
+      commands.cmd_clean()
+
+      vim.notify = original_notify
+
+      -- Verify all orphans were removed
+      assert.equals(0, vim.fn.isdirectory(install_dir .. "/orphan-1"))
+      assert.equals(0, vim.fn.isdirectory(install_dir .. "/orphan-2"))
+      assert.equals(0, vim.fn.isdirectory(install_dir .. "/orphan-3"))
+
+      -- Verify configured plugin still exists
+      assert.equals(1, vim.fn.isdirectory(install_dir .. "/configured-plugin"))
+
+      -- Verify completion message shows correct count
+      local found_complete = false
+      for _, notification in ipairs(notifications) do
+        if notification.msg:match("Clean complete: 3 orphan plugin") then
+          found_complete = true
+        end
+      end
+      assert.is_true(found_complete, "Should show 3 orphan plugins removed")
+
+      -- Clean up
+      vim.fn.delete(install_dir .. "/configured-plugin", "rf")
+    end)
+  end)
+
   describe("cmd_self_update", function()
     it("shows error when necromancer path cannot be determined", function()
       -- Mock get_necromancer_path to return nil

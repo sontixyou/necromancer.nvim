@@ -363,6 +363,78 @@ function M.cmd_status()
   end, { buffer = buf, nowait = true })
 end
 
+---Clean orphan plugins (not in config file)
+function M.cmd_clean()
+  -- Find config file
+  local config_path = paths.resolve_config_path()
+  if not config_path then
+    vim.notify("Config file not found. Run :Necromancer init to create one.", vim.log.levels.ERROR)
+    return
+  end
+
+  -- Parse config
+  local ok, cfg = pcall(config.parse_config_file, config_path)
+  if not ok then
+    vim.notify("Failed to parse config: " .. tostring(cfg), vim.log.levels.ERROR)
+    return
+  end
+
+  -- Get install directory
+  local install_dir = paths.get_default_install_dir()
+
+  -- Check if install directory exists
+  if vim.fn.isdirectory(install_dir) ~= 1 then
+    vim.notify("No plugins installed.", vim.log.levels.INFO)
+    return
+  end
+
+  -- Get list of installed plugin directories
+  local installed_dirs = vim.fn.readdir(install_dir)
+
+  -- Build set of configured plugin names
+  local configured_names = {}
+  for _, plugin in ipairs(cfg.plugins) do
+    configured_names[plugin.name] = true
+  end
+
+  -- Find orphan plugins
+  local orphans = {}
+  for _, dir_name in ipairs(installed_dirs) do
+    if not configured_names[dir_name] then
+      table.insert(orphans, dir_name)
+    end
+  end
+
+  if #orphans == 0 then
+    vim.notify("No orphan plugins found.", vim.log.levels.INFO)
+    return
+  end
+
+  -- Get lock file
+  local lock_path = paths.get_lock_file_path(config_path)
+  local lock = lockfile.read(lock_path)
+
+  -- Remove orphan plugins
+  local removed_count = 0
+  for _, orphan_name in ipairs(orphans) do
+    local orphan_path = install_dir .. "/" .. orphan_name
+    local remove_ok = vim.fn.delete(orphan_path, "rf")
+    if remove_ok == 0 then
+      removed_count = removed_count + 1
+      lockfile.remove_plugin(lock, orphan_name)
+      vim.notify(string.format("Removed orphan plugin: %s", orphan_name), vim.log.levels.INFO)
+    else
+      vim.notify(string.format("Failed to remove: %s", orphan_name), vim.log.levels.ERROR)
+    end
+  end
+
+  -- Write updated lockfile
+  lockfile.write(lock_path, lock)
+
+  -- Summary
+  vim.notify(string.format("Clean complete: %d orphan plugin(s) removed", removed_count), vim.log.levels.INFO)
+end
+
 ---Update necromancer.nvim itself
 function M.cmd_self_update()
   local necromancer_path = paths.get_necromancer_path()
@@ -614,7 +686,7 @@ end
 ---Get list of available subcommands
 ---@return string[]
 local function get_subcommands()
-  return { "install", "list", "status", "init", "update", "self-update" }
+  return { "clean", "install", "list", "status", "init", "update", "self-update" }
 end
 
 ---Get completions for :Necromancer command
@@ -665,7 +737,7 @@ local function dispatch(opts)
   local subcommand = args[1]
 
   if not subcommand then
-    vim.notify("Usage: :Necromancer <install|list|status|init|update|self-update> [args]", vim.log.levels.ERROR)
+    vim.notify("Usage: :Necromancer <clean|install|list|status|init|update|self-update> [args]", vim.log.levels.ERROR)
     return
   end
 
@@ -675,7 +747,9 @@ local function dispatch(opts)
     table.insert(subargs, args[i])
   end
 
-  if subcommand == "install" then
+  if subcommand == "clean" then
+    M.cmd_clean()
+  elseif subcommand == "install" then
     M.cmd_install(subargs)
   elseif subcommand == "list" then
     M.cmd_list()
@@ -689,7 +763,7 @@ local function dispatch(opts)
     M.cmd_update(subargs)
   else
     vim.notify("Unknown subcommand: " .. subcommand, vim.log.levels.ERROR)
-    vim.notify("Available commands: install, list, status, init, update, self-update", vim.log.levels.INFO)
+    vim.notify("Available commands: clean, install, list, status, init, update, self-update", vim.log.levels.INFO)
   end
 end
 
