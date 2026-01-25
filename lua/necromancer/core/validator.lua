@@ -40,6 +40,25 @@ function M.is_valid_plugin_name(name)
   return name:match("^[%w_][%w%.%-_]*$") ~= nil
 end
 
+---Validate Git branch name
+---@param name string
+---@return boolean
+function M.is_valid_branch_name(name)
+  if type(name) ~= "string" then
+    return false
+  end
+  if #name == 0 then
+    return false
+  end
+  -- First char: alphanumeric or underscore (not hyphen, dot, or slash)
+  -- Rest: alphanumeric, hyphen, underscore, dot, or slash
+  -- No shell metacharacters
+  if M.has_shell_metachar(name) then
+    return false
+  end
+  return name:match("^[%w_][%w%.%-_/]*$") ~= nil
+end
+
 ---Check for shell metacharacters (injection prevention)
 ---@param input string
 ---@return boolean has_metachar

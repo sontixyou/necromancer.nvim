@@ -8,13 +8,14 @@ test-ts:
 	npm test
 
 # Run Lua tests with plenary.nvim
+# Use NVIM_APPNAME for isolation from user config
 test-lua: test-deps
-	nvim --headless -u tests/minimal_init.lua -c "PlenaryBustedDirectory tests/necromancer/ {minimal_init = 'tests/minimal_init.lua', sequential = true}"
+	NVIM_APPNAME=necromancer_test nvim --headless --noplugin -u tests/minimal_init.lua -c "PlenaryBustedDirectory tests/necromancer/ {minimal_init = 'tests/minimal_init.lua', sequential = true}"
 
 # Run a specific Lua test file
 # Usage: make test-file FILE=tests/necromancer/core/config_spec.lua
 test-file: test-deps
-	nvim --headless -u tests/minimal_init.lua -c "PlenaryBustedFile $(FILE)"
+	NVIM_APPNAME=necromancer_test nvim --headless --noplugin -u tests/minimal_init.lua -c "PlenaryBustedFile $(FILE)"
 
 # Install test dependencies (plenary.nvim)
 test-deps:
