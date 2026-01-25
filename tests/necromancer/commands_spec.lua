@@ -654,6 +654,75 @@ describe("commands", function()
   end)
 end)
 
+describe("commands with custom install_dir", function()
+  local test_dir
+  local custom_install_dir
+  local original_cwd
+
+  before_each(function()
+    original_cwd = vim.fn.getcwd()
+
+    test_dir = vim.fn.tempname()
+    custom_install_dir = vim.fn.tempname() .. "/custom-plugins"
+    vim.fn.mkdir(test_dir, "p")
+    vim.fn.mkdir(custom_install_dir, "p")
+
+    -- 設定ファイルを作成
+    local cfg = {
+      plugins = {
+        {
+          name = "test-plugin",
+          repo = "https://github.com/test/test-plugin",
+          commit = "1234567890abcdef1234567890abcdef12345678",
+        },
+      },
+    }
+    vim.fn.writefile({ vim.json.encode(cfg) }, test_dir .. "/.necromancer.json")
+  end)
+
+  after_each(function()
+    vim.fn.chdir(original_cwd)
+    vim.fn.delete(test_dir, "rf")
+    vim.fn.delete(custom_install_dir, "rf")
+    pcall(vim.api.nvim_del_user_command, "Necromancer")
+    package.loaded["necromancer"] = nil
+    package.loaded["necromancer.commands"] = nil
+    package.loaded["necromancer.init"] = nil
+  end)
+
+  it("cmd_clean uses install_dir from setup", function()
+    package.loaded["necromancer"] = nil
+    package.loaded["necromancer.commands"] = nil
+    package.loaded["necromancer.init"] = nil
+
+    local necromancer_mod = require("necromancer")
+    necromancer_mod.setup({ install_dir = custom_install_dir })
+
+    local commands_module = require("necromancer.commands")
+
+    -- カスタム install_dir にプラグインディレクトリを作成
+    vim.fn.mkdir(custom_install_dir .. "/test-plugin", "p")
+    vim.fn.mkdir(custom_install_dir .. "/orphan-plugin", "p")
+
+    -- test_dir に移動（設定ファイルがある場所）
+    vim.fn.chdir(test_dir)
+
+    local notifications = {}
+    local original_notify = vim.notify
+    vim.notify = function(msg, level)
+      table.insert(notifications, { msg = msg, level = level })
+    end
+
+    commands_module.cmd_clean()
+
+    vim.notify = original_notify
+
+    -- orphan が削除されたことを確認
+    assert.equals(0, vim.fn.isdirectory(custom_install_dir .. "/orphan-plugin"))
+    assert.equals(1, vim.fn.isdirectory(custom_install_dir .. "/test-plugin"))
+  end)
+end)
+
 describe("commands with custom config_path", function()
   local test_dir
   local config_dir

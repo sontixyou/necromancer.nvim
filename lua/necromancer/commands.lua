@@ -103,7 +103,7 @@ function M.cmd_install(args)
   end
 
   -- Get install directory
-  local install_dir = paths.get_default_install_dir()
+  local install_dir = necromancer._config.install_dir or paths.get_default_install_dir()
 
   -- Ensure install directory exists
   vim.fn.mkdir(install_dir, "p")
@@ -264,7 +264,7 @@ function M.cmd_status()
   end
 
   -- Get install directory and lock file
-  local install_dir = paths.get_default_install_dir()
+  local install_dir = necromancer._config.install_dir or paths.get_default_install_dir()
   local lock_path = paths.get_lock_file_path(config_path)
   local lock = lockfile.read(lock_path)
 
@@ -381,7 +381,7 @@ function M.cmd_clean()
   end
 
   -- Get install directory
-  local install_dir = paths.get_default_install_dir()
+  local install_dir = necromancer._config.install_dir or paths.get_default_install_dir()
 
   -- Check if install directory exists
   if vim.fn.isdirectory(install_dir) ~= 1 then
@@ -542,7 +542,7 @@ function M.cmd_update(args)
   end
 
   -- Get install directory
-  local install_dir = paths.get_default_install_dir()
+  local install_dir = necromancer._config.install_dir or paths.get_default_install_dir()
 
   -- Determine which plugins to update
   local plugins_to_update = {}
