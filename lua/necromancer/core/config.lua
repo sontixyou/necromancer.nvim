@@ -84,6 +84,20 @@ function M.validate_config(config)
       ))
     end
 
+    -- Validate branch if present
+    if plugin.branch then
+      if type(plugin.branch) ~= "string" then
+        error(errors.ValidationError(
+          string.format('Branch for plugin "%s" must be a string', plugin.name)
+        ))
+      end
+      if not validator.is_valid_branch_name(plugin.branch) then
+        error(errors.ValidationError(
+          string.format('Invalid branch name for plugin "%s": %s', plugin.name, plugin.branch)
+        ))
+      end
+    end
+
     -- Validate dependencies if present
     if plugin.dependencies then
       if type(plugin.dependencies) ~= "table" then

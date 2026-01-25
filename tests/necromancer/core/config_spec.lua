@@ -128,6 +128,38 @@ describe("config", function()
         config.validate_config(cfg)
       end)
     end)
+
+    it("accepts valid branch field", function()
+      local cfg = {
+        plugins = {
+          {
+            name = "test-plugin",
+            repo = "https://github.com/owner/test-plugin",
+            commit = "a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2",
+            branch = "main",
+          },
+        },
+      }
+      assert.has_no_error(function()
+        config.validate_config(cfg)
+      end)
+    end)
+
+    it("errors on invalid branch field", function()
+      local cfg = {
+        plugins = {
+          {
+            name = "test-plugin",
+            repo = "https://github.com/owner/test-plugin",
+            commit = "a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2",
+            branch = ";malicious",
+          },
+        },
+      }
+      assert.has_error(function()
+        config.validate_config(cfg)
+      end)
+    end)
   end)
 
   describe("update_plugins_commits", function()
