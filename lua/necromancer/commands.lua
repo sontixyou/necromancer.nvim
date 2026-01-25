@@ -281,7 +281,7 @@ function M.cmd_update(args)
       local branch_ok, detected_branch = pcall(function()
         return git.get_default_branch(plugin_path)
       end)
-      if branch_ok then
+      if branch_ok and validator.is_valid_branch_name(detected_branch) then
         branch = detected_branch
       else
         branch = "main"
@@ -306,8 +306,8 @@ function M.cmd_update(args)
       goto continue
     end
 
-    -- Validate commit hash is a valid 40-character hex string
-    if #new_commit ~= 40 or not new_commit:match("^[a-f0-9]+$") then
+    -- Validate commit hash using the standard validator
+    if not validator.is_valid_commit_hash(new_commit) then
       vim.notify(string.format("Invalid commit hash for %s: %s", plugin.name, new_commit), vim.log.levels.ERROR)
       failed_count = failed_count + 1
       goto continue
