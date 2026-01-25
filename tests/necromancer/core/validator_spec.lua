@@ -176,4 +176,51 @@ describe("validator", function()
       assert.is_false(validator.has_shell_metachar(nil))
     end)
   end)
+
+  describe("is_valid_branch_name", function()
+    it("accepts simple branch name", function()
+      assert.is_true(validator.is_valid_branch_name("main"))
+    end)
+
+    it("accepts branch with hyphens", function()
+      assert.is_true(validator.is_valid_branch_name("feature-branch"))
+    end)
+
+    it("accepts branch with underscores", function()
+      assert.is_true(validator.is_valid_branch_name("feature_branch"))
+    end)
+
+    it("accepts branch with slashes", function()
+      assert.is_true(validator.is_valid_branch_name("feature/my-feature"))
+    end)
+
+    it("accepts branch with dots", function()
+      assert.is_true(validator.is_valid_branch_name("release.1.0"))
+    end)
+
+    it("rejects branch starting with hyphen", function()
+      assert.is_false(validator.is_valid_branch_name("-branch"))
+    end)
+
+    it("rejects branch starting with dot", function()
+      assert.is_false(validator.is_valid_branch_name(".branch"))
+    end)
+
+    it("rejects branch starting with slash", function()
+      assert.is_false(validator.is_valid_branch_name("/branch"))
+    end)
+
+    it("rejects empty string", function()
+      assert.is_false(validator.is_valid_branch_name(""))
+    end)
+
+    it("rejects nil", function()
+      assert.is_false(validator.is_valid_branch_name(nil))
+    end)
+
+    it("rejects branch with shell metacharacters", function()
+      assert.is_false(validator.is_valid_branch_name("branch;rm"))
+      assert.is_false(validator.is_valid_branch_name("branch`cmd`"))
+    end)
+  end)
 end)

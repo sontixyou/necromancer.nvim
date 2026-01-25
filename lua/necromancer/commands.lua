@@ -3,6 +3,7 @@ local git = require("necromancer.core.git")
 local installer = require("necromancer.core.installer")
 local lockfile = require("necromancer.core.lockfile")
 local paths = require("necromancer.utils.paths")
+local validator = require("necromancer.core.validator")
 
 local M = {}
 
@@ -362,6 +363,60 @@ function M.cmd_status()
   end, { buffer = buf, nowait = true })
 end
 
+---Update necromancer.nvim itself
+function M.cmd_self_update()
+  local necromancer_path = paths.get_necromancer_path()
+
+  if not necromancer_path then
+    vim.notify("Could not determine necromancer.nvim path", vim.log.levels.ERROR)
+    return
+  end
+
+  -- Check if it's a git repo
+  if vim.fn.isdirectory(necromancer_path .. "/.git") ~= 1 then
+    vim.notify("necromancer.nvim is not a git repository", vim.log.levels.ERROR)
+    return
+  end
+
+  vim.notify("Checking for updates...", vim.log.levels.INFO)
+
+  -- Fetch updates
+  local ok, err = pcall(git.fetch, necromancer_path)
+  if not ok then
+    local msg = type(err) == "table" and err.message or tostring(err)
+    vim.notify("Failed to fetch updates: " .. msg, vim.log.levels.ERROR)
+    return
+  end
+
+  -- Compare commits
+  local current_ok, current = pcall(git.get_current_commit, necromancer_path)
+  if not current_ok then
+    vim.notify("Failed to get current commit", vim.log.levels.ERROR)
+    return
+  end
+
+  local remote = git.get_remote_head(necromancer_path)
+  if not remote then
+    vim.notify("Could not determine remote HEAD", vim.log.levels.ERROR)
+    return
+  end
+
+  if current == remote then
+    vim.notify("necromancer.nvim is already up-to-date", vim.log.levels.INFO)
+    return
+  end
+
+  -- Pull updates
+  ok, err = pcall(git.pull, necromancer_path)
+  if not ok then
+    local msg = type(err) == "table" and err.message or tostring(err)
+    vim.notify("Failed to update: " .. msg, vim.log.levels.ERROR)
+    return
+  end
+
+  vim.notify("necromancer.nvim updated! Please restart Neovim to apply changes.", vim.log.levels.INFO)
+end
+
 ---Generate a new .necromancer.json config file
 function M.cmd_init()
   local config_path = ".necromancer.json"
@@ -389,10 +444,177 @@ function M.cmd_init()
   vim.notify("Created config file: " .. config_path, vim.log.levels.INFO)
 end
 
+---Update plugins to commits from specified days ago on their branch
+---@param args string[] Command arguments (optional plugin name)
+function M.cmd_update(args)
+  -- Validate args - at most one plugin name allowed
+  if #args > 1 then
+    vim.notify("Usage: :Necromancer update [plugin_name]", vim.log.levels.ERROR)
+    return
+  end
+  local plugin_name = args[1]
+
+  -- Find config file
+  local config_path = paths.resolve_config_path()
+  if not config_path then
+    vim.notify("Config file not found. Run :Necromancer init to create one.", vim.log.levels.ERROR)
+    return
+  end
+
+  -- Parse config
+  local ok, cfg = pcall(config.parse_config_file, config_path)
+  if not ok then
+    vim.notify("Failed to parse config: " .. tostring(cfg), vim.log.levels.ERROR)
+    return
+  end
+
+  -- Get install directory
+  local install_dir = paths.get_default_install_dir()
+
+  -- Determine which plugins to update
+  local plugins_to_update = {}
+  if plugin_name then
+    local plugin_def = find_plugin_by_name(cfg.plugins, plugin_name)
+    if not plugin_def then
+      vim.notify("Plugin not found in config: " .. plugin_name, vim.log.levels.ERROR)
+      return
+    end
+    table.insert(plugins_to_update, plugin_def)
+  else
+    plugins_to_update = cfg.plugins
+  end
+
+  -- Track results
+  local updates = {}
+  local updated_count = 0
+  local skipped_count = 0
+  local failed_count = 0
+  local days_ago = 7
+
+  -- Process each plugin
+  for _, plugin in ipairs(plugins_to_update) do
+    local plugin_path = paths.resolve_plugin_path(plugin.name, install_dir)
+
+    -- Check if plugin is installed
+    if vim.fn.isdirectory(plugin_path) ~= 1 then
+      vim.notify(string.format("Plugin not installed: %s (run :Necromancer install first)", plugin.name), vim.log.levels.WARN)
+      failed_count = failed_count + 1
+      goto continue
+    end
+
+    vim.notify(string.format("Fetching %s...", plugin.name), vim.log.levels.INFO)
+
+    -- Fetch latest from remote
+    local fetch_ok, fetch_err = pcall(function()
+      git.fetch(plugin_path)
+    end)
+    if not fetch_ok then
+      vim.notify(string.format("Failed to fetch %s: %s", plugin.name, tostring(fetch_err)), vim.log.levels.ERROR)
+      failed_count = failed_count + 1
+      goto continue
+    end
+
+    -- Determine branch
+    local branch = plugin.branch
+    if not branch then
+      local branch_ok, detected_branch = pcall(function()
+        return git.get_default_branch(plugin_path)
+      end)
+      if branch_ok and validator.is_valid_branch_name(detected_branch) then
+        branch = detected_branch
+      else
+        branch = "main"
+      end
+    end
+
+    -- Get commit from days_ago
+    local remote_branch = "origin/" .. branch
+    local commit_ok, new_commit = pcall(function()
+      return git.get_commit_before_date(plugin_path, remote_branch, days_ago)
+    end)
+    if not commit_ok then
+      vim.notify(string.format("Failed to get commit for %s: %s", plugin.name, tostring(new_commit)), vim.log.levels.ERROR)
+      failed_count = failed_count + 1
+      goto continue
+    end
+
+    -- Check if already at this commit
+    if new_commit == plugin.commit then
+      vim.notify(string.format("%s is already up to date", plugin.name), vim.log.levels.INFO)
+      skipped_count = skipped_count + 1
+      goto continue
+    end
+
+    -- Validate commit hash using the standard validator
+    if not validator.is_valid_commit_hash(new_commit) then
+      vim.notify(string.format("Invalid commit hash for %s: %s", plugin.name, new_commit), vim.log.levels.ERROR)
+      failed_count = failed_count + 1
+      goto continue
+    end
+
+    -- Checkout new commit
+    local checkout_ok, checkout_err = pcall(function()
+      git.checkout(plugin_path, new_commit)
+    end)
+    if not checkout_ok then
+      vim.notify(string.format("Failed to checkout %s: %s", plugin.name, tostring(checkout_err)), vim.log.levels.ERROR)
+      failed_count = failed_count + 1
+      goto continue
+    end
+
+    -- Record successful update
+    table.insert(updates, { name = plugin.name, commit = new_commit })
+    updated_count = updated_count + 1
+    vim.notify(string.format(
+      "Updated %s: %s -> %s (branch: %s, %d days ago)",
+      plugin.name,
+      plugin.commit:sub(1, 8),
+      new_commit:sub(1, 8),
+      branch,
+      days_ago
+    ), vim.log.levels.INFO)
+
+    ::continue::
+  end
+
+  -- Update config file with successful updates
+  if #updates > 0 then
+    local update_ok, update_err = pcall(function()
+      config.update_plugins_commits(config_path, updates)
+    end)
+    if not update_ok then
+      vim.notify("Failed to update config file: " .. tostring(update_err), vim.log.levels.ERROR)
+      -- Skip lockfile update to maintain consistency
+    else
+      -- Update lockfile only if config update succeeded
+      local lock_path = paths.get_lock_file_path(config_path)
+      local lock = lockfile.read(lock_path)
+      for _, update in ipairs(updates) do
+        local plugin_def = find_plugin_by_name(cfg.plugins, update.name)
+        if plugin_def then
+          local lock_entry = {
+            name = update.name,
+            repo = plugin_def.repo,
+            commit = update.commit,
+            path = paths.compress_tilde(paths.resolve_plugin_path(update.name, install_dir)),
+            installedAt = os.date("!%Y-%m-%dT%H:%M:%SZ"),
+          }
+          lockfile.upsert_plugin(lock, lock_entry)
+        end
+      end
+      lockfile.write(lock_path, lock)
+    end
+  end
+
+  -- Summary
+  local summary = string.format("Update complete: %d updated, %d skipped, %d failed", updated_count, skipped_count, failed_count)
+  vim.notify(summary, failed_count > 0 and vim.log.levels.WARN or vim.log.levels.INFO)
+end
+
 ---Get list of available subcommands
 ---@return string[]
 local function get_subcommands()
-  return { "install", "list", "status", "init" }
+  return { "install", "list", "status", "init", "update", "self-update" }
 end
 
 ---Get completions for :Necromancer command
@@ -412,8 +634,8 @@ local function complete(arg_lead, cmd_line, cursor_pos)
     end, subcommands)
   end
 
-  -- Second argument for install: plugin names
-  if num_args == 3 and parts[2] == "install" then
+  -- Second argument for install or update: plugin names
+  if num_args == 3 and (parts[2] == "install" or parts[2] == "update") then
     local config_path = paths.resolve_config_path()
     if not config_path then
       return {}
@@ -443,7 +665,7 @@ local function dispatch(opts)
   local subcommand = args[1]
 
   if not subcommand then
-    vim.notify("Usage: :Necromancer <install|list|status|init> [args]", vim.log.levels.ERROR)
+    vim.notify("Usage: :Necromancer <install|list|status|init|update|self-update> [args]", vim.log.levels.ERROR)
     return
   end
 
@@ -459,11 +681,15 @@ local function dispatch(opts)
     M.cmd_list()
   elseif subcommand == "status" then
     M.cmd_status()
+  elseif subcommand == "self-update" then
+    M.cmd_self_update()
   elseif subcommand == "init" then
     M.cmd_init()
+  elseif subcommand == "update" then
+    M.cmd_update(subargs)
   else
     vim.notify("Unknown subcommand: " .. subcommand, vim.log.levels.ERROR)
-    vim.notify("Available commands: install, list, status, init", vim.log.levels.INFO)
+    vim.notify("Available commands: install, list, status, init, update, self-update", vim.log.levels.INFO)
   end
 end
 
