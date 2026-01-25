@@ -1,0 +1,212 @@
+local git = require("necromancer.core.git")
+
+describe("git", function()
+  local test_dir
+  local test_repo
+
+  before_each(function()
+    -- Create temp directory
+    test_dir = vim.fn.tempname()
+    vim.fn.mkdir(test_dir, "p")
+
+    -- Create a test git repo
+    test_repo = test_dir .. "/test-repo"
+    vim.fn.mkdir(test_repo, "p")
+
+    vim.fn.system({ "git", "-C", test_repo, "init" })
+    vim.fn.system({ "git", "-C", test_repo, "config", "user.email", "test@test.com" })
+    vim.fn.system({ "git", "-C", test_repo, "config", "user.name", "Test" })
+
+    -- Create initial commit
+    vim.fn.writefile({ "test content" }, test_repo .. "/file.txt")
+    vim.fn.system({ "git", "-C", test_repo, "add", "." })
+    vim.fn.system({ "git", "-C", test_repo, "commit", "-m", "initial" })
+  end)
+
+  after_each(function()
+    -- Cleanup
+    vim.fn.delete(test_dir, "rf")
+  end)
+
+  describe("get_current_commit", function()
+    it("returns 40-char commit hash", function()
+      local commit = git.get_current_commit(test_repo)
+      assert.equals(40, #commit)
+      assert.is_true(commit:match("^[a-f0-9]+$") ~= nil)
+    end)
+  end)
+
+  describe("clone", function()
+    it("clones a local repository", function()
+      local clone_path = test_dir .. "/cloned"
+      git.clone(test_repo, clone_path)
+      assert.equals(1, vim.fn.isdirectory(clone_path))
+      assert.equals(1, vim.fn.isdirectory(clone_path .. "/.git"))
+    end)
+
+    it("cloned repo has same commit", function()
+      local clone_path = test_dir .. "/cloned"
+      git.clone(test_repo, clone_path)
+      local original_commit = git.get_current_commit(test_repo)
+      local cloned_commit = git.get_current_commit(clone_path)
+      assert.equals(original_commit, cloned_commit)
+    end)
+  end)
+
+  describe("checkout", function()
+    it("checks out a specific commit", function()
+      -- Create second commit
+      vim.fn.writefile({ "updated" }, test_repo .. "/file.txt")
+      vim.fn.system({ "git", "-C", test_repo, "add", "." })
+      vim.fn.system({ "git", "-C", test_repo, "commit", "-m", "second" })
+
+      local second_commit = git.get_current_commit(test_repo)
+
+      -- Get first commit
+      local first_commit = vim.trim(vim.fn.system({ "git", "-C", test_repo, "rev-parse", "HEAD~1" }))
+
+      -- Checkout first commit
+      git.checkout(test_repo, first_commit)
+
+      local current = git.get_current_commit(test_repo)
+      assert.equals(first_commit, current)
+      assert.is_not.equals(second_commit, current)
+    end)
+  end)
+
+  describe("fetch", function()
+    it("fetches from remote without error", function()
+      -- Clone to get a repo with remote
+      local clone_path = test_dir .. "/cloned"
+      git.clone(test_repo, clone_path)
+
+      -- Fetch should not error
+      assert.has_no_error(function()
+        git.fetch(clone_path)
+      end)
+    end)
+  end)
+
+  describe("get_default_branch", function()
+    it("returns default branch name for repo with remote", function()
+      -- Clone to get a repo with remote
+      local clone_path = test_dir .. "/cloned-for-default"
+      git.clone(test_repo, clone_path)
+
+      local branch = git.get_default_branch(clone_path)
+      -- Should return main or master (depending on git config)
+      assert.is_true(branch == "main" or branch == "master")
+    end)
+
+    it("falls back to existing branch for repo without remote", function()
+      -- test_repo has no remote configured
+      -- Should detect the existing branch (main or master depending on git config)
+      local branch = git.get_default_branch(test_repo)
+      assert.is_true(branch == "main" or branch == "master")
+    end)
+  end)
+
+  describe("get_commit_before_date", function()
+    it("returns commit from before specified days", function()
+      -- Clone to get a repo with remote tracking
+      local clone_path = test_dir .. "/cloned-for-date"
+      git.clone(test_repo, clone_path)
+
+      -- For a fresh repo, any days_ago should return the only commit
+      local commit = git.get_commit_before_date(clone_path, "origin/master", 7)
+      assert.equals(40, #commit)
+      assert.is_true(commit:match("^[a-f0-9]+$") ~= nil)
+    end)
+
+    it("returns oldest commit if no commit before date", function()
+      local clone_path = test_dir .. "/cloned-for-oldest"
+      git.clone(test_repo, clone_path)
+
+      -- Request commit from 1000 days ago (before repo existed)
+      local commit = git.get_commit_before_date(clone_path, "origin/master", 1000)
+      assert.equals(40, #commit)
+    end)
+  end)
+
+  describe("get_remote_head", function()
+    it("returns remote HEAD commit hash", function()
+      -- Clone to get a repo with remote
+      local clone_path = test_dir .. "/cloned-for-remote-head"
+      git.clone(test_repo, clone_path)
+
+      local remote_head = git.get_remote_head(clone_path)
+      assert.is_not_nil(remote_head)
+      assert.equals(40, #remote_head)
+      assert.is_true(remote_head:match("^[a-f0-9]+$") ~= nil)
+    end)
+
+    it("returns nil when remote does not exist", function()
+      -- test_repo has no remote
+      local remote_head = git.get_remote_head(test_repo)
+      assert.is_nil(remote_head)
+    end)
+  end)
+
+  describe("pull", function()
+    it("pulls updates from remote", function()
+      -- Create origin repo
+      local origin_repo = test_dir .. "/origin"
+      vim.fn.mkdir(origin_repo, "p")
+      vim.fn.system({ "git", "-C", origin_repo, "init" })
+      vim.fn.system({ "git", "-C", origin_repo, "config", "user.email", "test@test.com" })
+      vim.fn.system({ "git", "-C", origin_repo, "config", "user.name", "Test" })
+      vim.fn.writefile({ "initial" }, origin_repo .. "/file.txt")
+      vim.fn.system({ "git", "-C", origin_repo, "add", "." })
+      vim.fn.system({ "git", "-C", origin_repo, "commit", "-m", "initial" })
+
+      -- Clone
+      local clone_path = test_dir .. "/clone"
+      git.clone(origin_repo, clone_path)
+      local initial_commit = git.get_current_commit(clone_path)
+
+      -- Add commit to origin
+      vim.fn.writefile({ "updated" }, origin_repo .. "/file.txt")
+      vim.fn.system({ "git", "-C", origin_repo, "add", "." })
+      vim.fn.system({ "git", "-C", origin_repo, "commit", "-m", "update" })
+      local new_commit = git.get_current_commit(origin_repo)
+
+      -- Fetch and pull
+      git.fetch(clone_path)
+      git.pull(clone_path)
+
+      local current = git.get_current_commit(clone_path)
+      assert.equals(new_commit, current)
+      assert.is_not.equals(initial_commit, current)
+    end)
+
+    it("fails when local changes exist", function()
+      -- Create origin repo
+      local origin_repo = test_dir .. "/origin"
+      vim.fn.mkdir(origin_repo, "p")
+      vim.fn.system({ "git", "-C", origin_repo, "init" })
+      vim.fn.system({ "git", "-C", origin_repo, "config", "user.email", "test@test.com" })
+      vim.fn.system({ "git", "-C", origin_repo, "config", "user.name", "Test" })
+      vim.fn.writefile({ "initial" }, origin_repo .. "/file.txt")
+      vim.fn.system({ "git", "-C", origin_repo, "add", "." })
+      vim.fn.system({ "git", "-C", origin_repo, "commit", "-m", "initial" })
+
+      -- Clone
+      local clone_path = test_dir .. "/clone"
+      git.clone(origin_repo, clone_path)
+
+      -- Make local uncommitted change
+      vim.fn.writefile({ "local change" }, clone_path .. "/file.txt")
+
+      -- Add divergent commit to origin
+      vim.fn.writefile({ "remote change" }, origin_repo .. "/file.txt")
+      vim.fn.system({ "git", "-C", origin_repo, "add", "." })
+      vim.fn.system({ "git", "-C", origin_repo, "commit", "-m", "remote" })
+
+      -- Fetch and try pull - should fail due to local changes
+      git.fetch(clone_path)
+      assert.has_error(function()
+        git.pull(clone_path)
+      end)
+    end)
+  end)
+end)

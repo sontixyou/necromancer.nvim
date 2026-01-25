@@ -1,198 +1,221 @@
 # Necromancer.nvim
 
-**Neovim plugin manager with commit-based versioning**
+**Pure Lua Neovim plugin manager with commit-based versioning**
 
-Necromancer is a deterministic, zero-dependency Neovim plugin manager that uses Git commit hashes for precise version control. Built with TypeScript and designed for simplicity, reliability, and reproducibility.
+Necromancer is a deterministic, zero-dependency Neovim plugin manager that uses Git commit hashes for precise version control. Built entirely in Lua with no external dependencies - just Neovim and Git.
+
+> **Note:** v2.0 is a complete rewrite in pure Lua. The v1.x TypeScript/Node.js version is deprecated and no longer maintained.
 
 ## Features
 
+- **Pure Lua implementation**: No Node.js, npm, or external runtime required
 - **Commit-based versioning**: Pin plugins to exact Git commits (40-character SHA-1 hashes)
 - **Plugin dependencies**: Automatic dependency resolution and installation ordering
-- **Zero runtime dependencies**: Only Node.js built-ins (fs, child_process, path, crypto)
+- **Zero dependencies**: Only requires Neovim (0.9+) and Git
 - **Deterministic installations**: Lock file ensures reproducible plugin environments
-- **Fast and lightweight**: Synchronous operations, no network overhead
+- **Native Neovim integration**: Use `:Necromancer` commands directly in Neovim
 - **Auto-repair**: Detects and fixes corrupted plugin installations
-- **Simple CLI**: Intuitive commands for all plugin management tasks
 
 ## Installation
 
 ### Prerequisites
 
-- Node.js 24+ (or any version with ES2020+ support)
+- Neovim 0.9+ (with Lua 5.1/LuaJIT support)
 - Git installed and available in PATH
-- Neovim (for using the installed plugins)
-- Deno (required for denops-based plugins) - [Installation guide](https://deno.land/)
 
-### Install globally via npm
+### Bootstrap Installation
 
-```bash
-npm install -g necromancer.nvim
+Add the following to your `~/.config/nvim/init.lua`:
+
+```lua
+-- Necromancer bootstrap
+local necromancer_path = vim.fn.stdpath("data") .. "/necromancer/necromancer.nvim"
+if not vim.loop.fs_stat(necromancer_path) then
+  vim.fn.system({
+    "git", "clone",
+    "https://github.com/sontixyou/necromancer.nvim",
+    necromancer_path,
+  })
+end
+vim.opt.rtp:prepend(necromancer_path)
+require("necromancer").setup({
+  -- Optional: specify a custom config file path
+  -- config_path = "~/.config/nvim/.necromancer.json",
+  -- Optional: specify a custom plugin installation directory
+  -- install_dir = "~/.local/share/nvim/necromancer/plugins",
+})
 ```
 
-### Verify installation
+This will:
+1. Clone necromancer.nvim on first launch if not present
+2. Add it to Neovim's runtime path
+3. Initialize the plugin manager
 
-```bash
-necromancer --help
+### Verify Installation
+
+Open Neovim and run:
+
+```vim
+:Necromancer list
 ```
 
 ## Quick Start
 
-### 1. Initialize configuration
+### 1. Create configuration
 
-```bash
-necromancer init
-```
-
-This creates a `.necromancer.json` file in the current directory.
-
-### 2. Edit configuration
-
-Edit `.necromancer.json` to add your Neovim plugins:
+Create a `.necromancer.json` file in your Neovim config directory (`~/.config/nvim/`):
 
 ```json
 {
   "plugins": [
     {
-      "name": "denops.vim",
-      "repo": "https://github.com/vim-denops/denops.vim",
-      "commit": "a278b8342459e4687f24d4d575d72ff593326cee"
+      "name": "plenary.nvim",
+      "repo": "https://github.com/nvim-lua/plenary.nvim",
+      "commit": "a3e3bc82a3f95c5ed0d7201546d5d2c19b20d683"
     },
     {
-      "name": "denops-helloworld",
-      "repo": "https://github.com/vim-denops/denops-helloworld.vim",
-      "commit": "f975281571191cfd4e3f9e5ba77103932f7dd6e5"
+      "name": "telescope.nvim",
+      "repo": "https://github.com/nvim-telescope/telescope.nvim",
+      "commit": "6312868392331c9c0f22af9b6c6957284e07e1a6",
+      "dependencies": ["plenary.nvim"]
     }
   ]
 }
 ```
 
-### 3. Install plugins
+### 2. Install plugins
 
-```bash
-necromancer install
+In Neovim, run:
+
+```vim
+:Necromancer install
 ```
 
 Plugins are installed to:
 - **Unix/macOS**: `~/.local/share/nvim/necromancer/plugins/`
 - **Windows**: `%LOCALAPPDATA%\nvim\necromancer\plugins\`
 
-### 4. Configure Neovim
+### 3. Configure plugins
 
-Add to your `~/.config/nvim/init.lua`:
+After installation, configure your plugins in `init.lua`:
 
 ```lua
--- Configure Deno path for denops.vim (required for denops-based plugins)
--- Adjust the path based on your Deno installation:
--- - macOS (Homebrew): '/opt/homebrew/bin/deno'
--- - macOS (Intel): '/usr/local/bin/deno'
--- - Linux: '/usr/bin/deno' or '~/.deno/bin/deno'
--- - Windows: 'C:/Users/USERNAME/scoop/shims/deno.exe'
-vim.g['denops#deno'] = '/opt/homebrew/bin/deno'
-
--- Load necromancer plugins
-local plugin_dir = vim.fn.expand('~/.local/share/nvim/necromancer/plugins')
-for _, plugin in ipairs(vim.fn.readdir(plugin_dir)) do
-  vim.opt.runtimepath:append(plugin_dir .. '/' .. plugin)
-end
-
--- Now you can use the plugins
+-- Plugins are automatically added to runtimepath by necromancer
 require('telescope').setup{}
-require('nvim-treesitter.configs').setup{}
 ```
-
-**Note**: If you plan to use denops-based plugins (like ddc.vim, ddu.vim, etc.), you must:
-1. Install Deno (see Prerequisites)
-2. Include `denops.vim` in your plugin configuration
-3. Set the correct Deno path in your Neovim config
 
 ## Commands
 
-### `necromancer init`
+All commands are available via the `:Necromancer` command:
 
-Create a new configuration file with example plugin.
+### `:Necromancer install [plugin]`
 
-```bash
-necromancer init
-necromancer init --config /path/to/config.json
-necromancer init --force  # Overwrite existing config
+Install all plugins from configuration file, or a specific plugin by name.
+
+```vim
+" Install all plugins
+:Necromancer install
+
+" Install a specific plugin
+:Necromancer install telescope.nvim
 ```
 
-### `necromancer install`
+### `:Necromancer list`
 
-Install all plugins from configuration file.
+Show installed plugins in a floating window.
 
-```bash
-necromancer install
-necromancer install --verbose         # Show detailed output
-necromancer install --auto-clean      # Remove orphaned plugins after install
-necromancer install --config ./custom.json
+```vim
+:Necromancer list
 ```
 
-**Exit codes:**
-- `0`: Success
-- `1`: Configuration error
-- `2`: Partial failure (some plugins failed)
-- `3`: Fatal error
+### `:Necromancer init`
 
-### `necromancer update`
+Create a new `.necromancer.json` configuration file in the current directory.
 
-Update plugins to versions specified in config.
-
-```bash
-necromancer update
-necromancer update plugin1 plugin2  # Update specific plugins (planned feature)
+```vim
+:Necromancer init
 ```
 
-Same exit codes as `install`.
+### `:Necromancer status`
 
-### `necromancer list`
+Show status of all configured plugins with update information.
 
-List all plugins and their status.
-
-```bash
-necromancer list
+```vim
+:Necromancer status
 ```
 
-**Output:**
-```
-plenary.nvim      [a3e3bc82]  ✓ up-to-date
-nvim-treesitter   [0dfbf5e4]  ⚠ outdated (installed: [abc12345])
-telescope.nvim    -            ✗ not installed
+This command fetches the latest commits from remote repositories and displays:
+- Current installation state (up-to-date, outdated, update available, not installed, corrupted)
+- Current commit vs. configured commit
+- Available remote updates
 
-3 plugins total: 1 up-to-date, 1 outdated, 1 not installed
-```
+### `:Necromancer update [plugin]`
 
-### `necromancer verify`
+Update plugins to the latest commit from their default branch (7 days ago for stability).
 
-Verify plugin installations are intact.
+```vim
+" Update all plugins
+:Necromancer update
 
-```bash
-necromancer verify
-necromancer verify --fix  # Auto-repair corrupted installations
-```
-
-**Exit codes:**
-- `0`: All verified
-- `2`: Issues found
-
-### `necromancer clean`
-
-Remove plugins no longer in configuration.
-
-```bash
-necromancer clean --dry-run  # Show what would be removed
-necromancer clean            # Interactive confirmation
-necromancer clean --force    # Skip confirmation
+" Update a specific plugin
+:Necromancer update telescope.nvim
 ```
 
-### `necromancer help`
+This updates both the plugin files and the `.necromancer.json` configuration.
 
-Show help message.
+### `:Necromancer clean`
 
-```bash
-necromancer help
-necromancer --help
+Remove orphan plugins that are no longer in the configuration file.
+
+```vim
+:Necromancer clean
 ```
+
+### `:Necromancer self-update`
+
+Update necromancer.nvim itself to the latest version.
+
+```vim
+:Necromancer self-update
+```
+
+## Setup Options
+
+The `setup()` function accepts the following options:
+
+```lua
+require("necromancer").setup({
+  -- Custom path to config file (optional)
+  -- If not specified, searches for .necromancer.json in current directory,
+  -- then falls back to ~/.config/necromancer/config.json
+  config_path = "~/.config/nvim/.necromancer.json",
+
+  -- Custom plugin installation directory (optional)
+  -- Default: ~/.local/share/nvim/necromancer/plugins (Unix/macOS)
+  --          %LOCALAPPDATA%\nvim\necromancer\plugins (Windows)
+  install_dir = "~/my-plugins",
+
+  -- Auto-fetch necromancer.nvim updates on startup (optional)
+  -- Can be boolean or table with options
+  autofetch = {
+    enabled = true,        -- Enable/disable autofetch (default: true)
+    notify_updates = true, -- Show notification when updates are available (default: true)
+    quiet = false,         -- Suppress debug messages (default: false)
+  },
+})
+```
+
+### Global Configuration
+
+You can use a global configuration by specifying `config_path` in your `init.lua`:
+
+```lua
+require("necromancer").setup({
+  config_path = "~/.config/nvim/.necromancer.json",
+})
+```
+
+This allows you to use the same plugin configuration from any directory.
 
 ## Configuration File Format
 
@@ -249,7 +272,7 @@ Necromancer supports plugin dependencies to ensure proper loading order. When a 
 }
 ```
 
-**Installation order**: `plenary.nvim` → `telescope.nvim` → `telescope-ui-select.nvim`
+**Installation order**: `plenary.nvim` -> `telescope.nvim` -> `telescope-ui-select.nvim`
 
 **Dependency features:**
 - **Topological sorting**: Dependencies are resolved using topological sorting to determine the correct installation order
@@ -268,7 +291,7 @@ Necromancer supports plugin dependencies to ensure proper loading order. When a 
 
 ## Lock File
 
-Necromancer maintains a `.necromancer.lock` file (or `lock.json` for global configs) that tracks:
+Necromancer maintains a `.necromancer.lock` file that tracks:
 
 - Installed plugin versions (commit hashes)
 - Installation timestamps
@@ -276,34 +299,11 @@ Necromancer maintains a `.necromancer.lock` file (or `lock.json` for global conf
 
 **Do not edit lock files manually.** They are automatically updated by install/update/clean commands.
 
-## Performance Characteristics
-
-Based on specification requirements:
-
-| Operation | Target Performance |
-|-----------|-------------------|
-| Install 50 plugins (fresh) | < 2 minutes (~2.4s per plugin) |
-| Install 10 plugins (fresh) | < 24 seconds |
-| Update 1 plugin | < 3 seconds |
-| Config parsing (100 plugins) | < 100ms |
-| List command | < 50ms |
-| Verify command | < 200ms |
-
-## Constitutional Principles
-
-Necromancer is built on strict design principles:
-
-1. **Zero runtime dependencies**: Only Node.js built-ins
-2. **Synchronous-first architecture**: No async/await in core logic
-3. **Commit hash versioning only**: No tags or branches
-4. **TypeScript strict mode**: Full type safety
-5. **Simplicity over abstraction**: Direct implementations
-
 ## Troubleshooting
 
 ### Plugin not showing in Neovim
 
-1. Verify installation: `necromancer list`
+1. Verify installation: `:Necromancer list`
 2. Check Neovim runtimepath: `:lua print(vim.inspect(vim.opt.runtimepath:get()))`
 3. Verify plugin directory exists: `ls ~/.local/share/nvim/necromancer/plugins/`
 
@@ -312,7 +312,6 @@ Necromancer is built on strict design principles:
 1. Check network: `ping github.com`
 2. Verify git is installed: `git --version`
 3. Check repository URL: Try cloning manually with `git clone <url>`
-4. Use verbose mode: `necromancer install --verbose`
 
 ### Permission denied errors
 
@@ -329,65 +328,64 @@ Necromancer is built on strict design principles:
 
 1. Verify commit exists in repository: Visit GitHub and check commit history
 2. Ensure full 40-character hash is used (not short hash like `abc1234`)
-3. Try updating repository: `necromancer verify --fix`
+3. Try reinstalling: `:Necromancer install <plugin-name>`
 
 ### Corrupted installation
 
-If a plugin installation is corrupted:
+If a plugin installation is corrupted, reinstall it:
 
-```bash
-# Detect corruption
-necromancer verify
-
-# Auto-repair
-necromancer verify --fix
+```vim
+:Necromancer install <plugin-name>
 ```
 
-Necromancer will re-clone the corrupted plugin at the correct commit.
+Necromancer will detect and auto-repair corrupted installations during install.
+
+## Migration from v1.x (TypeScript)
+
+If you were using the TypeScript version (v1.x):
+
+1. Remove the npm global package: `npm uninstall -g necromancer.nvim`
+2. Your `.necromancer.json` config files are compatible - no changes needed
+3. Add the bootstrap code to your `init.lua` (see Installation section)
+4. Run `:Necromancer install` to reinstall plugins
 
 ## Development
 
-### Building from source
+### Project structure
 
-```bash
-git clone https://github.com/your-username/necromancer
-cd necromancer
-npm install
-npm run build
+```
+necromancer.nvim/
+├── lua/
+│   └── necromancer/
+│       ├── init.lua              # Main entry point, setup()
+│       ├── commands.lua          # :Necromancer command definitions
+│       ├── core/
+│       │   ├── autofetch.lua     # Async update checking on startup
+│       │   ├── config.lua        # Configuration file parsing
+│       │   ├── dependencies.lua  # Dependency resolution (topological sort)
+│       │   ├── git.lua           # Git operations (clone, fetch, checkout)
+│       │   ├── installer.lua     # Plugin installation logic
+│       │   ├── lockfile.lua      # Lock file management
+│       │   └── validator.lua     # Input validation
+│       └── utils/
+│           ├── errors.lua        # Custom error types
+│           └── paths.lua         # Path utilities
+├── tests/
+│   └── necromancer/              # Test files (*_spec.lua)
+└── README.md
 ```
 
 ### Running tests
 
 ```bash
-# All tests
-npm test
+# Run all tests
+make test-lua
 
-# Unit tests only
-npm run test:unit
+# Run specific test file
+make test-file FILE=tests/necromancer/core/validator_spec.lua
 
-# Integration tests only
-npm run test:integration
-
-# Watch mode
-npm test -- --watch
-```
-
-### Project structure
-
-```
-necromancer/
-├── src/
-│   ├── cli/
-│   │   ├── commands/      # CLI command implementations
-│   │   └── index.ts       # CLI entry point
-│   ├── core/              # Core business logic
-│   ├── models/            # TypeScript interfaces
-│   └── utils/             # Utility functions
-├── tests/
-│   ├── unit/              # Unit tests
-│   └── integration/       # Integration tests
-├── dist/                  # Compiled JavaScript (gitignored)
-└── package.json
+# Install test dependencies (plenary.nvim)
+make test-deps
 ```
 
 ## License
@@ -398,10 +396,9 @@ MIT
 
 Contributions are welcome! Please ensure:
 
-1. All tests pass: `npm test`
-2. TypeScript compiles: `npm run build`
-3. Code follows existing patterns (synchronous, no dependencies)
-4. New features include tests
+1. All tests pass
+2. Code follows existing Lua patterns
+3. New features include tests
 
 ## Acknowledgments
 
