@@ -11,15 +11,12 @@ Necromancer は純粋な Lua で実装された Neovim プラグインマネー�
 - **Pure Lua**: 外部依存なし、Neovim (0.9+) と Git のみ必要
 - **コミットハッシュバージョニング**: 40文字の SHA-1 ハッシュのみ使用
 - **シンプルさ優先**: 直接的な実装、複雑な抽象化を避ける
-- **同期的な実行**: `vim.fn.system` による Git 操作
+- **同期的な Git 操作**: `vim.fn.system` による実行（autofetch のみ `vim.fn.jobstart` で非同期）
 
 ## Development Commands
 
 ```bash
-# 全テスト実行
-make test
-
-# Luaテストのみ実行
+# Lua テスト実行（推奨）
 make test-lua
 
 # 特定のテストファイルを実行
@@ -52,16 +49,17 @@ Config File (.necromancer.json)
 - `validator.lua`: 入力検証（コミットハッシュ、URL、プラグイン名）
 - `dependencies.lua`: 依存関係解決（Kahn のアルゴリズムによるトポロジカルソート）
 - `installer.lua`: プラグインインストール、検証、修復
-- `git.lua`: Git 操作（clone, checkout, fetch）
+- `git.lua`: Git 操作（clone, checkout, fetch, pull）
 - `lockfile.lua`: ロックファイル管理
+- `autofetch.lua`: 起動時の非同期フェッチ、更新通知
 
 **lua/necromancer/utils/** - ユーティリティ
-- `paths.lua`: パス解決、チルダ展開
+- `paths.lua`: パス解決、チルダ展開、necromancer.nvim 自身のパス取得
 - `errors.lua`: カスタムエラー型（ValidationError, GitError, ConfigError）
 
 **lua/necromancer/** - エントリポイント
-- `init.lua`: `setup()` 関数、runtimepath 設定
-- `commands.lua`: `:Necromancer` コマンド定義
+- `init.lua`: `setup()` 関数、runtimepath 設定、autofetch 起動
+- `commands.lua`: `:Necromancer` コマンド定義（install, list, init, self-update）
 
 ### Key Patterns
 
@@ -154,24 +152,6 @@ describe("validator", function()
     end)
   end)
 end)
-```
-
-### テストディレクトリ構造
-
-```
-tests/
-├── minimal_init.lua          # テスト用最小Neovim設定
-└── necromancer/
-    ├── core/
-    │   ├── config_spec.lua
-    │   ├── validator_spec.lua
-    │   ├── dependencies_spec.lua
-    │   ├── git_spec.lua
-    │   ├── installer_spec.lua
-    │   └── lockfile_spec.lua
-    ├── utils/
-    │   └── paths_spec.lua
-    └── commands_spec.lua
 ```
 
 ## Common Development Scenarios
