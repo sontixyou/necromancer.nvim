@@ -653,3 +653,156 @@ describe("commands", function()
     end)
   end)
 end)
+
+describe("commands with custom install_dir", function()
+  local test_dir
+  local custom_install_dir
+  local original_cwd
+
+  before_each(function()
+    original_cwd = vim.fn.getcwd()
+
+    test_dir = vim.fn.tempname()
+    custom_install_dir = vim.fn.tempname() .. "/custom-plugins"
+    vim.fn.mkdir(test_dir, "p")
+    vim.fn.mkdir(custom_install_dir, "p")
+
+    -- 設定ファイルを作成
+    local cfg = {
+      plugins = {
+        {
+          name = "test-plugin",
+          repo = "https://github.com/test/test-plugin",
+          commit = "1234567890abcdef1234567890abcdef12345678",
+        },
+      },
+    }
+    vim.fn.writefile({ vim.json.encode(cfg) }, test_dir .. "/.necromancer.json")
+  end)
+
+  after_each(function()
+    vim.fn.chdir(original_cwd)
+    vim.fn.delete(test_dir, "rf")
+    vim.fn.delete(custom_install_dir, "rf")
+    pcall(vim.api.nvim_del_user_command, "Necromancer")
+    package.loaded["necromancer"] = nil
+    package.loaded["necromancer.commands"] = nil
+    package.loaded["necromancer.init"] = nil
+  end)
+
+  it("cmd_clean uses install_dir from setup", function()
+    package.loaded["necromancer"] = nil
+    package.loaded["necromancer.commands"] = nil
+    package.loaded["necromancer.init"] = nil
+
+    local necromancer_mod = require("necromancer")
+    necromancer_mod.setup({ install_dir = custom_install_dir })
+
+    local commands_module = require("necromancer.commands")
+
+    -- カスタム install_dir にプラグインディレクトリを作成
+    vim.fn.mkdir(custom_install_dir .. "/test-plugin", "p")
+    vim.fn.mkdir(custom_install_dir .. "/orphan-plugin", "p")
+
+    -- test_dir に移動（設定ファイルがある場所）
+    vim.fn.chdir(test_dir)
+
+    local notifications = {}
+    local original_notify = vim.notify
+    vim.notify = function(msg, level)
+      table.insert(notifications, { msg = msg, level = level })
+    end
+
+    commands_module.cmd_clean()
+
+    vim.notify = original_notify
+
+    -- orphan が削除されたことを確認
+    assert.equals(0, vim.fn.isdirectory(custom_install_dir .. "/orphan-plugin"))
+    assert.equals(1, vim.fn.isdirectory(custom_install_dir .. "/test-plugin"))
+  end)
+end)
+
+describe("commands with custom config_path", function()
+  local test_dir
+  local config_dir
+  local original_cwd
+
+  before_each(function()
+    -- Save current directory
+    original_cwd = vim.fn.getcwd()
+
+    -- テストディレクトリを作成
+    test_dir = vim.fn.tempname()
+    config_dir = vim.fn.tempname()
+    vim.fn.mkdir(test_dir, "p")
+    vim.fn.mkdir(config_dir, "p")
+
+    -- 設定ファイルを config_dir に作成
+    local cfg = {
+      plugins = {
+        {
+          name = "test-plugin",
+          repo = "https://github.com/test/test-plugin",
+          commit = "1234567890abcdef1234567890abcdef12345678",
+        },
+      },
+    }
+    vim.fn.writefile({ vim.json.encode(cfg) }, config_dir .. "/.necromancer.json")
+  end)
+
+  after_each(function()
+    vim.fn.chdir(original_cwd)
+    vim.fn.delete(test_dir, "rf")
+    vim.fn.delete(config_dir, "rf")
+    pcall(vim.api.nvim_del_user_command, "Necromancer")
+    -- モジュールキャッシュをクリア
+    package.loaded["necromancer"] = nil
+    package.loaded["necromancer.commands"] = nil
+    package.loaded["necromancer.init"] = nil
+  end)
+
+  it("cmd_list uses config_path from setup", function()
+    -- モジュールキャッシュをクリアしてリロード
+    package.loaded["necromancer"] = nil
+    package.loaded["necromancer.commands"] = nil
+    package.loaded["necromancer.init"] = nil
+
+    -- カスタム config_path で setup
+    local necromancer = require("necromancer")
+    necromancer.setup({ config_path = config_dir .. "/.necromancer.json" })
+
+    local commands_module = require("necromancer.commands")
+    local lockfile_module = require("necromancer.core.lockfile")
+
+    -- ロックファイルを作成
+    local lock = lockfile_module.create_empty()
+    lockfile_module.upsert_plugin(lock, {
+      name = "test-plugin",
+      repo = "https://github.com/test/test-plugin",
+      commit = "1234567890abcdef1234567890abcdef12345678",
+      path = "~/.local/share/nvim/necromancer/plugins/test-plugin",
+      installedAt = os.date("!%Y-%m-%dT%H:%M:%SZ"),
+    })
+    lockfile_module.write(config_dir .. "/.necromancer.lock", lock)
+
+    -- test_dir に移動（設定ファイルがない場所）
+    vim.fn.chdir(test_dir)
+
+    -- cmd_list を実行（カレントディレクトリに設定ファイルがなくても動作する）
+    commands_module.cmd_list()
+
+    -- フローティングウィンドウが開くことを確認
+    local wins = vim.api.nvim_list_wins()
+    local found_float = false
+    for _, win in ipairs(wins) do
+      local win_config = vim.api.nvim_win_get_config(win)
+      if win_config.relative ~= "" then
+        found_float = true
+        vim.api.nvim_win_close(win, true)
+        break
+      end
+    end
+    assert.is_true(found_float, "Should find config from setup and open floating window")
+  end)
+end)

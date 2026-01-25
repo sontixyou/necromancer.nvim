@@ -2,6 +2,7 @@ local config = require("necromancer.core.config")
 local git = require("necromancer.core.git")
 local installer = require("necromancer.core.installer")
 local lockfile = require("necromancer.core.lockfile")
+local necromancer = require("necromancer")
 local paths = require("necromancer.utils.paths")
 local validator = require("necromancer.core.validator")
 
@@ -88,7 +89,7 @@ function M.cmd_install(args)
   local plugin_name = args[1]
 
   -- Find config file
-  local config_path = paths.resolve_config_path()
+  local config_path = paths.resolve_config_path(necromancer._config.config_path)
   if not config_path then
     vim.notify("Config file not found. Run :Necromancer init to create one.", vim.log.levels.ERROR)
     return
@@ -102,7 +103,7 @@ function M.cmd_install(args)
   end
 
   -- Get install directory
-  local install_dir = paths.get_default_install_dir()
+  local install_dir = necromancer._config.install_dir or paths.get_default_install_dir()
 
   -- Ensure install directory exists
   vim.fn.mkdir(install_dir, "p")
@@ -176,7 +177,7 @@ end
 ---List installed plugins
 function M.cmd_list()
   -- Find config file
-  local config_path = paths.resolve_config_path()
+  local config_path = paths.resolve_config_path(necromancer._config.config_path)
   if not config_path then
     vim.notify("Config file not found. Run :Necromancer init to create one.", vim.log.levels.WARN)
     return
@@ -249,7 +250,7 @@ local STATUS_INFO = {
 ---Show status of all configured plugins
 function M.cmd_status()
   -- Find config file
-  local config_path = paths.resolve_config_path()
+  local config_path = paths.resolve_config_path(necromancer._config.config_path)
   if not config_path then
     vim.notify("Config file not found. Run :Necromancer init to create one.", vim.log.levels.ERROR)
     return
@@ -263,7 +264,7 @@ function M.cmd_status()
   end
 
   -- Get install directory and lock file
-  local install_dir = paths.get_default_install_dir()
+  local install_dir = necromancer._config.install_dir or paths.get_default_install_dir()
   local lock_path = paths.get_lock_file_path(config_path)
   local lock = lockfile.read(lock_path)
 
@@ -366,7 +367,7 @@ end
 ---Clean orphan plugins (not in config file)
 function M.cmd_clean()
   -- Find config file
-  local config_path = paths.resolve_config_path()
+  local config_path = paths.resolve_config_path(necromancer._config.config_path)
   if not config_path then
     vim.notify("Config file not found. Run :Necromancer init to create one.", vim.log.levels.ERROR)
     return
@@ -380,7 +381,7 @@ function M.cmd_clean()
   end
 
   -- Get install directory
-  local install_dir = paths.get_default_install_dir()
+  local install_dir = necromancer._config.install_dir or paths.get_default_install_dir()
 
   -- Check if install directory exists
   if vim.fn.isdirectory(install_dir) ~= 1 then
@@ -527,7 +528,7 @@ function M.cmd_update(args)
   local plugin_name = args[1]
 
   -- Find config file
-  local config_path = paths.resolve_config_path()
+  local config_path = paths.resolve_config_path(necromancer._config.config_path)
   if not config_path then
     vim.notify("Config file not found. Run :Necromancer init to create one.", vim.log.levels.ERROR)
     return
@@ -541,7 +542,7 @@ function M.cmd_update(args)
   end
 
   -- Get install directory
-  local install_dir = paths.get_default_install_dir()
+  local install_dir = necromancer._config.install_dir or paths.get_default_install_dir()
 
   -- Determine which plugins to update
   local plugins_to_update = {}
@@ -708,7 +709,7 @@ local function complete(arg_lead, cmd_line, cursor_pos)
 
   -- Second argument for install or update: plugin names
   if num_args == 3 and (parts[2] == "install" or parts[2] == "update") then
-    local config_path = paths.resolve_config_path()
+    local config_path = paths.resolve_config_path(necromancer._config.config_path)
     if not config_path then
       return {}
     end

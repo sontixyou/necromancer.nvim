@@ -2,6 +2,11 @@ local M = {}
 
 M._VERSION = "2.0.0"
 
+M._config = {
+  config_path = nil,
+  install_dir = nil,
+}
+
 ---Setup necromancer plugin manager
 ---@param opts? table Optional configuration
 ---  - config_path: string|nil - Custom path to config file
@@ -12,6 +17,10 @@ M._VERSION = "2.0.0"
 ---    - quiet: boolean (default: false) - Suppress debug messages
 function M.setup(opts)
   opts = opts or {}
+
+  -- Save config options
+  M._config.config_path = opts.config_path
+  M._config.install_dir = opts.install_dir
 
   local paths = require("necromancer.utils.paths")
   local lockfile = require("necromancer.core.lockfile")
