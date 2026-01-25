@@ -359,4 +359,38 @@ describe("commands", function()
       assert.is_true(notifications[1].msg:match("Plugin not found") ~= nil)
     end)
   end)
+
+  describe("cmd_self_update", function()
+    it("shows error when necromancer path cannot be determined", function()
+      -- Mock get_necromancer_path to return nil
+      local original_fn = paths.get_necromancer_path
+      paths.get_necromancer_path = function()
+        return nil
+      end
+
+      -- Should not crash
+      commands.cmd_self_update()
+
+      -- Restore
+      paths.get_necromancer_path = original_fn
+    end)
+
+    it("shows error when path is not a git repo", function()
+      -- Create non-git directory
+      local fake_path = test_dir .. "/fake-necromancer"
+      vim.fn.mkdir(fake_path, "p")
+
+      -- Mock get_necromancer_path
+      local original_fn = paths.get_necromancer_path
+      paths.get_necromancer_path = function()
+        return fake_path
+      end
+
+      -- Should not crash
+      commands.cmd_self_update()
+
+      -- Restore
+      paths.get_necromancer_path = original_fn
+    end)
+  end)
 end)
