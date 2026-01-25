@@ -146,4 +146,67 @@ describe("git", function()
       assert.is_nil(remote_head)
     end)
   end)
+
+  describe("pull", function()
+    it("pulls updates from remote", function()
+      -- Create origin repo
+      local origin_repo = test_dir .. "/origin"
+      vim.fn.mkdir(origin_repo, "p")
+      vim.fn.system({ "git", "-C", origin_repo, "init" })
+      vim.fn.system({ "git", "-C", origin_repo, "config", "user.email", "test@test.com" })
+      vim.fn.system({ "git", "-C", origin_repo, "config", "user.name", "Test" })
+      vim.fn.writefile({ "initial" }, origin_repo .. "/file.txt")
+      vim.fn.system({ "git", "-C", origin_repo, "add", "." })
+      vim.fn.system({ "git", "-C", origin_repo, "commit", "-m", "initial" })
+
+      -- Clone
+      local clone_path = test_dir .. "/clone"
+      git.clone(origin_repo, clone_path)
+      local initial_commit = git.get_current_commit(clone_path)
+
+      -- Add commit to origin
+      vim.fn.writefile({ "updated" }, origin_repo .. "/file.txt")
+      vim.fn.system({ "git", "-C", origin_repo, "add", "." })
+      vim.fn.system({ "git", "-C", origin_repo, "commit", "-m", "update" })
+      local new_commit = git.get_current_commit(origin_repo)
+
+      -- Fetch and pull
+      git.fetch(clone_path)
+      git.pull(clone_path)
+
+      local current = git.get_current_commit(clone_path)
+      assert.equals(new_commit, current)
+      assert.is_not.equals(initial_commit, current)
+    end)
+
+    it("fails when local changes exist", function()
+      -- Create origin repo
+      local origin_repo = test_dir .. "/origin"
+      vim.fn.mkdir(origin_repo, "p")
+      vim.fn.system({ "git", "-C", origin_repo, "init" })
+      vim.fn.system({ "git", "-C", origin_repo, "config", "user.email", "test@test.com" })
+      vim.fn.system({ "git", "-C", origin_repo, "config", "user.name", "Test" })
+      vim.fn.writefile({ "initial" }, origin_repo .. "/file.txt")
+      vim.fn.system({ "git", "-C", origin_repo, "add", "." })
+      vim.fn.system({ "git", "-C", origin_repo, "commit", "-m", "initial" })
+
+      -- Clone
+      local clone_path = test_dir .. "/clone"
+      git.clone(origin_repo, clone_path)
+
+      -- Make local uncommitted change
+      vim.fn.writefile({ "local change" }, clone_path .. "/file.txt")
+
+      -- Add divergent commit to origin
+      vim.fn.writefile({ "remote change" }, origin_repo .. "/file.txt")
+      vim.fn.system({ "git", "-C", origin_repo, "add", "." })
+      vim.fn.system({ "git", "-C", origin_repo, "commit", "-m", "remote" })
+
+      -- Fetch and try pull - should fail due to local changes
+      git.fetch(clone_path)
+      assert.has_error(function()
+        git.pull(clone_path)
+      end)
+    end)
+  end)
 end)
