@@ -1,6 +1,7 @@
 local config = require("necromancer.core.config")
 local git = require("necromancer.core.git")
 local installer = require("necromancer.core.installer")
+local json = require("necromancer.utils.json")
 local lockfile = require("necromancer.core.lockfile")
 local necromancer = require("necromancer")
 local paths = require("necromancer.utils.paths")
@@ -511,9 +512,10 @@ function M.cmd_init()
     },
   }
 
-  -- Write config file with pretty formatting using vim.json
-  local json = vim.json.encode(default_config)
-  vim.fn.writefile({ json }, config_path)
+  -- Write config file with pretty formatting
+  local json_str = json.encode_pretty(default_config)
+  local lines = vim.split(json_str, "\n", { plain = true })
+  vim.fn.writefile(lines, config_path)
   vim.notify("Created config file: " .. config_path, vim.log.levels.INFO)
 end
 

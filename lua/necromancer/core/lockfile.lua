@@ -1,3 +1,5 @@
+local json = require("necromancer.utils.json")
+
 local M = {}
 
 M.LOCK_FILE_VERSION = "1"
@@ -39,8 +41,9 @@ end
 ---@param data table
 function M.write(path, data)
   data.generated = os.date("!%Y-%m-%dT%H:%M:%SZ")
-  local json = vim.json.encode(data)
-  vim.fn.writefile({ json }, path)
+  local json_str = json.encode_pretty(data)
+  local lines = vim.split(json_str, "\n", { plain = true })
+  vim.fn.writefile(lines, path)
 end
 
 ---Find plugin in lock file
