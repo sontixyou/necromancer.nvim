@@ -3,6 +3,7 @@ local git = require("necromancer.core.git")
 local installer = require("necromancer.core.installer")
 local lockfile = require("necromancer.core.lockfile")
 local paths = require("necromancer.utils.paths")
+local validator = require("necromancer.core.validator")
 
 local M = {}
 
@@ -362,6 +363,60 @@ function M.cmd_status()
   end, { buffer = buf, nowait = true })
 end
 
+---Update necromancer.nvim itself
+function M.cmd_self_update()
+  local necromancer_path = paths.get_necromancer_path()
+
+  if not necromancer_path then
+    vim.notify("Could not determine necromancer.nvim path", vim.log.levels.ERROR)
+    return
+  end
+
+  -- Check if it's a git repo
+  if vim.fn.isdirectory(necromancer_path .. "/.git") ~= 1 then
+    vim.notify("necromancer.nvim is not a git repository", vim.log.levels.ERROR)
+    return
+  end
+
+  vim.notify("Checking for updates...", vim.log.levels.INFO)
+
+  -- Fetch updates
+  local ok, err = pcall(git.fetch, necromancer_path)
+  if not ok then
+    local msg = type(err) == "table" and err.message or tostring(err)
+    vim.notify("Failed to fetch updates: " .. msg, vim.log.levels.ERROR)
+    return
+  end
+
+  -- Compare commits
+  local current_ok, current = pcall(git.get_current_commit, necromancer_path)
+  if not current_ok then
+    vim.notify("Failed to get current commit", vim.log.levels.ERROR)
+    return
+  end
+
+  local remote = git.get_remote_head(necromancer_path)
+  if not remote then
+    vim.notify("Could not determine remote HEAD", vim.log.levels.ERROR)
+    return
+  end
+
+  if current == remote then
+    vim.notify("necromancer.nvim is already up-to-date", vim.log.levels.INFO)
+    return
+  end
+
+  -- Pull updates
+  ok, err = pcall(git.pull, necromancer_path)
+  if not ok then
+    local msg = type(err) == "table" and err.message or tostring(err)
+    vim.notify("Failed to update: " .. msg, vim.log.levels.ERROR)
+    return
+  end
+
+  vim.notify("necromancer.nvim updated! Please restart Neovim to apply changes.", vim.log.levels.INFO)
+end
+
 ---Generate a new .necromancer.json config file
 function M.cmd_init()
   local config_path = ".necromancer.json"
@@ -559,7 +614,7 @@ end
 ---Get list of available subcommands
 ---@return string[]
 local function get_subcommands()
-  return { "install", "list", "status", "init", "update" }
+  return { "install", "list", "status", "init", "update", "self-update" }
 end
 
 ---Get completions for :Necromancer command
@@ -610,7 +665,7 @@ local function dispatch(opts)
   local subcommand = args[1]
 
   if not subcommand then
-    vim.notify("Usage: :Necromancer <install|list|status|init|update> [args]", vim.log.levels.ERROR)
+    vim.notify("Usage: :Necromancer <install|list|status|init|update|self-update> [args]", vim.log.levels.ERROR)
     return
   end
 
@@ -626,13 +681,15 @@ local function dispatch(opts)
     M.cmd_list()
   elseif subcommand == "status" then
     M.cmd_status()
+  elseif subcommand == "self-update" then
+    M.cmd_self_update()
   elseif subcommand == "init" then
     M.cmd_init()
   elseif subcommand == "update" then
     M.cmd_update(subargs)
   else
     vim.notify("Unknown subcommand: " .. subcommand, vim.log.levels.ERROR)
-    vim.notify("Available commands: install, list, status, init, update", vim.log.levels.INFO)
+    vim.notify("Available commands: install, list, status, init, update, self-update", vim.log.levels.INFO)
   end
 end
 
