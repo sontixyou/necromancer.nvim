@@ -86,4 +86,23 @@ describe("git", function()
       end)
     end)
   end)
+
+  describe("get_remote_head", function()
+    it("returns remote HEAD commit hash", function()
+      -- Clone to get a repo with remote
+      local clone_path = test_dir .. "/cloned"
+      git.clone(test_repo, clone_path)
+
+      local remote_head = git.get_remote_head(clone_path)
+      assert.is_not_nil(remote_head)
+      assert.equals(40, #remote_head)
+      assert.is_true(remote_head:match("^[a-f0-9]+$") ~= nil)
+    end)
+
+    it("returns nil when remote does not exist", function()
+      -- test_repo has no remote
+      local remote_head = git.get_remote_head(test_repo)
+      assert.is_nil(remote_head)
+    end)
+  end)
 end)

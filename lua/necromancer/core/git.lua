@@ -90,4 +90,39 @@ function M.get_current_commit(repo_path)
   return result
 end
 
+---Get remote HEAD commit hash
+---@param repo_path string Path to repository
+---@return string|nil commit 40-character hash, or nil if no remote
+function M.get_remote_head(repo_path)
+  -- Try to get remote HEAD (origin/HEAD -> origin/main or origin/master)
+  local ok, result = pcall(function()
+    -- First try origin/HEAD
+    local head = git_exec({ "rev-parse", "origin/HEAD" }, repo_path)
+    return head
+  end)
+
+  if ok then
+    return result
+  end
+
+  -- Fallback: try origin/main, then origin/master
+  ok, result = pcall(function()
+    return git_exec({ "rev-parse", "origin/main" }, repo_path)
+  end)
+
+  if ok then
+    return result
+  end
+
+  ok, result = pcall(function()
+    return git_exec({ "rev-parse", "origin/master" }, repo_path)
+  end)
+
+  if ok then
+    return result
+  end
+
+  return nil
+end
+
 return M
